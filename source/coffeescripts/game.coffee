@@ -1,23 +1,29 @@
 THREE = require('three')
 $     = require('jquery')
 
-Unit  = require('./unit')
 Room  = require('./room')
+Const = require('./constants')
 
 class Game
 	constructor: ->
 		@_setupRenderer()
 		@_setupScene()
 
+		# Add a test mesh.
 		geometry = new THREE.CubeGeometry(200, 200, 200)
 		material = new THREE.MeshBasicMaterial()
 		@mesh = new THREE.Mesh(geometry, material)
+		@mesh.scale.multiplyScalar(1 / 4)
+		@mesh.position.y = 100
 		@scene.add(@mesh)
 
 		$(window).resize(@_updateGameSize.bind(@))
 
-		unit = new Unit()
-		room = new Room()
+		room = new Room(10, 10, 5)
+		@scene.add(room.object)
+
+		@scene.add(new THREE.AxisHelper(200))
+
 		console.log('Game launched!')
 
 	run: ->
@@ -39,7 +45,10 @@ class Game
 	_setupScene: ->
 		@scene = new THREE.Scene()
 		@camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000)
-		@camera.position.z = 400
+		@camera.position.x = 150
+		@camera.position.y = 150
+		@camera.position.z = 150
+		@camera.lookAt(Const.origin)
 
 $ ->
 	game = new Game()
