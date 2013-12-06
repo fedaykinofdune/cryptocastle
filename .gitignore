@@ -1,4 +1,6 @@
 *.log*
 *.js
+!source/javascripts/vendor/*.js
+!public/javascripts/*.js
 
 build/

@@ -28,18 +28,17 @@ task :compile do
   output = "#{File.dirname(__FILE__)}/source/javascripts/"
 
   FileUtils.mkdir_p(output)
-  `coffee -o #{output} -c #{COFFEE_SOURCE_PATH}/*.coffee`
+  `$(npm bin)/coffee -o #{output} -c #{COFFEE_SOURCE_PATH}/*.coffee`
 end
 
 desc 'Build coffeescript source'
 task build: :compile do
-  source = "#{File.dirname(__FILE__)}/source/javascripts/game.js"
   output = "#{File.dirname(__FILE__)}/public/javascripts"
   outputFile = "#{output}/game.js"
 
   FileUtils.mkdir_p(output)
   FileUtils.rm_f(outputFile)
-  `browserify #{source} -o #{outputFile}`
+  `$(npm bin)/browserify . --fast -o #{outputFile}`
 
   if $?.to_i == 0
     puts "Built successfully as #{outputFile}"

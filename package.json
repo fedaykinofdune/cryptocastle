@@ -1,0 +1,40 @@
+{
+  "name": "bitcoinbet",
+  "version": "0.0.0",
+  "description": "Bitcoin game",
+  "main": "./source/javascripts/game.js",
+  "browser": {
+    "jquery": "./source/javascripts/vendor/jquery.js",
+    "three": "./source/javascripts/vendor/three.js"
+  },
+  "browserify-shim": {
+    "jquery": "$",
+    "three": "THREE"
+  },
+  "browserify": {
+    "transform": [ "browserify-shim" ]
+  },
+  "dependencies": {
+    "browserify": "~2.36.1",
+    "browserify-shim": "~3.0.4",
+    "coffee-script": "~1.6.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/mhluska/bitcoinbet.git"
+  },
+  "keywords": [
+    "bitcoin",
+    "casino",
+    "game"
+  ],
+  "author": "Maros Hluska",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/mhluska/bitcoinbet/issues"
+  }
+}
