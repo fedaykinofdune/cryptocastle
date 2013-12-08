@@ -2512,11 +2512,9 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
     };
 
     Game.prototype._getIntersectedTile = function() {
-      var intersect, intersects, isTile, mousePos, _i, _len;
-      mousePos = new THREE.Vector3(this.mousePos.x, this.mousePos.y, 1);
-      this.projector.unprojectVector(mousePos, this.camera);
-      this.raycaster.set(this.camera.position, mousePos.sub(this.camera.position).normalize());
-      intersects = this.raycaster.intersectObjects(this.scene.children, true);
+      var intersect, intersects, isTile, ray, _i, _len;
+      ray = this.projector.pickingRay(this.mousePos.clone(), this.camera);
+      intersects = ray.intersectObjects(this.scene.children, true);
       for (_i = 0, _len = intersects.length; _i < _len; _i++) {
         intersect = intersects[_i];
         isTile = intersect.object.geometry.width === Const.tileSize;
@@ -2529,31 +2527,42 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
     Game.prototype._getMousePosition = function(event) {
       event.preventDefault();
       if (this.mousePos == null) {
-        this.mousePos = {};
+        this.mousePos = new THREE.Vector3(0, 0, 0.5);
       }
       this.mousePos.x = (event.clientX / window.innerWidth) * 2 - 1;
       return this.mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1;
     };
 
     Game.prototype._updateGameSize = function() {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
+      var height, width;
+      width = window.innerWidth / 2;
+      height = window.innerHeight / 2;
+      this.camera.left = -width;
+      this.camera.right = width;
+      this.camera.top = height;
+      this.camera.bottom = -height;
       this.camera.updateProjectionMatrix();
       return this.renderer.setSize(window.innerWidth, window.innerHeight);
     };
 
     Game.prototype._setupRenderer = function() {
       this.projector = new THREE.Projector();
-      this.raycaster = new THREE.Raycaster();
       this.renderer = new THREE.WebGLRenderer();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       return $('body').append(this.renderer.domElement);
     };
 
     Game.prototype._setupScene = function() {
+      var height, width;
       this.scene = new THREE.Scene();
-      this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000);
-      this.camera.position = new THREE.Vector3(150, 150, 150);
-      return this.camera.lookAt(Const.origin);
+      width = window.innerWidth / 2;
+      height = window.innerHeight / 2;
+      this.camera = new THREE.OrthographicCamera(-width, width, height, -height, -500, 1000);
+      this.camera.position = new THREE.Vector3(100, 100, 100);
+      this.camera.scale.set(0.5, 0.5, 0.5);
+      this.camera.lookAt(Const.origin);
+      this.camera.position.x /= 2;
+      return this.camera.position.z /= 2;
     };
 
     return Game;

@@ -49,10 +49,8 @@ class Game
 			@prevIntersectedMesh = intersectedMesh
 
 	_getIntersectedTile: ->
-		mousePos = new THREE.Vector3(@mousePos.x, @mousePos.y, 1)
-		@projector.unprojectVector(mousePos, @camera)
-		@raycaster.set(@camera.position, mousePos.sub(@camera.position).normalize())
-		intersects = @raycaster.intersectObjects(@scene.children, true)
+		ray = @projector.pickingRay(@mousePos.clone(), @camera)
+		intersects = ray.intersectObjects(@scene.children, true)
 
 		for intersect in intersects
 			isTile = intersect.object.geometry.width is Const.tileSize
@@ -60,28 +58,38 @@ class Game
 
 	_getMousePosition: (event) ->
 		event.preventDefault()
-		@mousePos ?= {}
+		@mousePos ?= new THREE.Vector3(0, 0, 0.5);
 		@mousePos.x = (event.clientX / window.innerWidth) * 2 - 1
 		@mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1
 
 	_updateGameSize: ->
-		@camera.aspect = window.innerWidth / window.innerHeight
+		width = window.innerWidth / 2
+		height = window.innerHeight / 2
+		@camera.left = -width
+		@camera.right = width
+		@camera.top = height
+		@camera.bottom = -height
+
 		@camera.updateProjectionMatrix()
 		@renderer.setSize(window.innerWidth, window.innerHeight) 
 
 	_setupRenderer: ->
 		@projector = new THREE.Projector()
-		@raycaster = new THREE.Raycaster()
-
 		@renderer = new THREE.WebGLRenderer()
 		@renderer.setSize(window.innerWidth, window.innerHeight)
 		$('body').append(@renderer.domElement)
 
 	_setupScene: ->
 		@scene = new THREE.Scene()
-		@camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000)
-		@camera.position = new THREE.Vector3(150, 150, 150)
+
+		width = window.innerWidth / 2
+		height = window.innerHeight / 2
+		@camera = new THREE.OrthographicCamera(-width, width, height, -height, -500, 1000)
+		@camera.position = new THREE.Vector3(100, 100, 100)
+		@camera.scale.set(0.5, 0.5, 0.5)
 		@camera.lookAt(Const.origin)
+		@camera.position.x /= 2
+		@camera.position.z /= 2
 
 $ ->
 	game = new Game()
