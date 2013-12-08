@@ -5,11 +5,13 @@
   "main": "./source/javascripts/game.js",
   "browser": {
     "jquery": "./source/javascripts/vendor/jquery.js",
-    "three": "./source/javascripts/vendor/three.js"
+    "three": "./source/javascripts/vendor/three.js",
+    "tween": "./source/javascripts/vendor/tween.js"
   },
   "browserify-shim": {
     "jquery": "$",
-    "three": "THREE"
+    "three": "THREE",
+    "tween": "TWEEN"
   },
   "browserify": {
     "transform": [ "browserify-shim" ]

@@ -1,13 +1,15 @@
-THREE = require('three')
-$     = require('jquery')
+THREE  = require('three')
+TWEEN  = require('tween')
+$      = require('jquery')
 
-Room  = require('./room')
-Const = require('./constants')
+Room   = require('./room')
+Const  = require('./constants')
+Player = require('./player')
 
 class Game
 	constructor: ->
 		@mousePos = null
-		@prevIntersectedMesh = null
+		@prevIntersectedTile = null
 
 		@_setupRenderer()
 		@_setupScene()
@@ -20,16 +22,22 @@ class Game
 		@scene.add(@mesh)
 
 		$(document).mousemove(@_getMousePosition.bind(@))
+		$(document).click(@_movePlayer.bind(@))
 		$(window).resize(@_updateGameSize.bind(@))
 
 		@room = new Room(10, 10, 5)
 		@scene.add(@room.object)
 		@scene.add(new THREE.AxisHelper(200))
 
+		@player = new Player()
+		@player.moveTo(@room.tiles[4][4])
+		@scene.add(@player.object)
+
 		console.log('Game launched!')
 
 	run: ->
 		requestAnimationFrame(@run.bind(@))
+		TWEEN.update()
 		@mesh.rotation.x += 0.005
 		@mesh.rotation.y += 0.01
 
@@ -39,21 +47,22 @@ class Game
 	_handleTileIntersection: ->
 		return unless @mousePos
 
-		intersectedMesh = @_getIntersectedTile()
-		unless intersectedMesh
-			return @prevIntersectedMesh?.visible = false
+		intersectedTile = @_getIntersectedTile()
+		unless intersectedTile
+			return @prevIntersectedTile?.visible = false
 
-		if intersectedMesh isnt @prevIntersectedMesh
-			intersectedMesh.visible = true
-			@prevIntersectedMesh?.visible = false
-			@prevIntersectedMesh = intersectedMesh
+		if intersectedTile isnt @prevIntersectedTile
+			intersectedTile.visible = true
+			@prevIntersectedTile?.visible = false
+			@prevIntersectedTile = intersectedTile
 
 	_getIntersectedTile: ->
 		ray = @projector.pickingRay(@mousePos.clone(), @camera)
 		intersects = ray.intersectObjects(@scene.children, true)
 
 		for intersect in intersects
-			isTile = intersect.object.geometry.width is Const.tileSize
+			geom = intersect.object.geometry
+			isTile = geom.width is Const.tileSize and geom.faces.length is 2
 			return intersect.object if isTile
 
 	_getMousePosition: (event) ->
@@ -61,6 +70,11 @@ class Game
 		@mousePos ?= new THREE.Vector3(0, 0, 0.5);
 		@mousePos.x = (event.clientX / window.innerWidth) * 2 - 1
 		@mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1
+
+	_movePlayer: (event) ->
+		event.preventDefault()
+		intersectedTile = @_getIntersectedTile()
+		@player.moveTo(intersectedTile)
 
 	_updateGameSize: ->
 		width = window.innerWidth / 2
