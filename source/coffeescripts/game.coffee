@@ -1,5 +1,6 @@
 THREE  = require('three')
 TWEEN  = require('tween')
+PF     = require('pathfinding')
 $      = require('jquery')
 
 Room   = require('./room')
@@ -10,6 +11,8 @@ class Game
 	constructor: ->
 		@mousePos = null
 		@prevIntersectedTile = null
+		@floorWidth = 10
+		@floorHeight = 10
 
 		@_setupRenderer()
 		@_setupScene()
@@ -25,12 +28,15 @@ class Game
 		$(document).click(@_movePlayer.bind(@))
 		$(window).resize(@_updateGameSize.bind(@))
 
-		@room = new Room(10, 10, 5)
+		@grid = new PF.Grid(@floorWidth, @floorHeight)
+		@pathfinder = new PF.AStarFinder(allowDiagonal: true)
+
+		@room = new Room(@floorWidth, 5, @floorHeight)
 		@scene.add(@room.object)
 		@scene.add(new THREE.AxisHelper(200))
 
-		@player = new Player()
-		@player.moveTo(@room.tiles[4][4])
+		@player = new Player(@room)
+		@player.moveTo(@room.tiles[@floorWidth - 1][4])
 		@scene.add(@player.object)
 
 		console.log('Game launched!')
@@ -60,10 +66,10 @@ class Game
 		ray = @projector.pickingRay(@mousePos.clone(), @camera)
 		intersects = ray.intersectObjects(@scene.children, true)
 
-		for intersect in intersects
-			geom = intersect.object.geometry
-			isTile = geom.width is Const.tileSize and geom.faces.length is 2
-			return intersect.object if isTile
+		for intersect in intersects when intersect.object.parent.id is @room.floor.id
+			# There are twice as many Face3 objects as our Tile objects so we
+			# need to map to our range.
+			return intersect.object
 
 	_getMousePosition: (event) ->
 		event.preventDefault()
@@ -73,8 +79,19 @@ class Game
 
 	_movePlayer: (event) ->
 		event.preventDefault()
-		intersectedTile = @_getIntersectedTile()
-		@player.moveTo(intersectedTile)
+
+		intersectedTileMesh = @_getIntersectedTile()
+		sourceTile = @room.mesh2tileObj(@player.tile)
+		targetTile = @room.mesh2tileObj(intersectedTileMesh)
+
+		path = @pathfinder.findPath(
+			sourceTile.xGrid,
+			sourceTile.yGrid,
+			targetTile.xGrid,
+			targetTile.yGrid
+			@grid.clone())	
+
+		@player.moveAlong(path.slice(1))
 
 	_updateGameSize: ->
 		width = window.innerWidth / 2

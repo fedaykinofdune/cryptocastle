@@ -1,4 +1,5 @@
 THREE = require('three')
+_     = require('underscore')
 
 Tile  = require('./tile')
 Const = require('./constants')
@@ -14,42 +15,59 @@ module.exports = class Room
 		# Build the isometric room.
 		material = new THREE.MeshNormalMaterial()
 		material.side = THREE.DoubleSide
-
-		@floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeY), material)
-		leftWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeY, sizeZ), material)
-		rightWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ), material)
+		@floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @xTiles, @zTiles), material)
+		leftWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeY), material)
+		rightWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeY, sizeZ), material)
 
 		@floor.rotation.x = Math.PI / 2
 		leftWall.rotation.y = Math.PI / 2
-		leftWall.rotation.z = Math.PI / 2
-		leftWall.position = new THREE.Vector3(-sizeX / 2, 0, -sizeZ / 2)
-		rightWall.rotation.x = Math.PI / 2
-		rightWall.rotation.y = Math.PI
-		rightWall.position = new THREE.Vector3(0, -sizeY / 2, -sizeZ / 2)
+		leftWall.position = new THREE.Vector3(-sizeX / 2, sizeY / 2, 0)
+		rightWall.rotation.z = Math.PI / 2
+		rightWall.position = new THREE.Vector3(0, sizeY / 2, -sizeZ / 2)
 
-		@floor.add(leftWall)
-		@floor.add(rightWall)
+		@_setupTiles(@floor)
 
-		@_setupTiles(@floor.geometry.vertices[2])
+		@object = new THREE.Object3D()
+		@object.add(@floor)
+		@object.add(leftWall)
+		@object.add(rightWall)
 
-		@object = @floor
 		@object
 
+	# TODO: Replace this with a hash lookup rather than linear iteration.
+	mesh2tileObj: (mesh) ->
+		for y in [0...@zTiles]		
+			for x in [0...@xTiles]
+				return @tiles[x][y] if @tiles[x][y].object is mesh
+
 	_eachTile: (callback) ->
-		for y in [0...@yTiles]		
+		for y in [0...@zTiles]		
 			for x in [0...@xTiles]
 				callback(@tiles[x][y], x, y)
 
-	_setupTiles: (floorCorner) ->
-		# Build a 2D array of tiles.
+	_setupTiles: (floor) ->
+		# Build tiles based on the faces of the floor.
 		@tiles = []
-		for x in [0...@xTiles]
-			@tiles.push(
-				for y in [0...@yTiles]
-					xPos = floorCorner.x + (x * Const.tileSize) + (Const.tileSize / 2)
-					yPos = floorCorner.y + (y * Const.tileSize) + (Const.tileSize / 2)
-					new Tile(xPos, yPos, floorCorner.z)
-			)
+		geometry = floor.geometry
+		for face, index in geometry.faces by 2
+			otherFace = geometry.faces[index + 1]
+			vertices = _.uniq([
+				geometry.vertices[face.a]
+				geometry.vertices[face.b]
+				geometry.vertices[face.c]
+				geometry.vertices[otherFace.a]
+				geometry.vertices[otherFace.b]
+				geometry.vertices[otherFace.c]
+			])
+
+			centroid = new THREE.Vector3()
+			centroid.add(vertex) for vertex in vertices
+			centroid.divideScalar(vertices.length)
+
+			xIndex = Math.floor(index / @xTiles / 2)
+			@tiles[xIndex] ?= []
+			yIndex = @tiles[xIndex].length
+			@tiles[xIndex][yIndex] = new Tile(centroid.x, centroid.y, centroid.z - 1, xIndex, yIndex)
 
 		# Connect each tile to it's neighbours at sides and vertices.
 		@_eachTile((tile, x, y) =>

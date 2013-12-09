@@ -5,9 +5,9 @@ Tile  = require('./tile')
 Const = require('./constants')
 
 module.exports = class Player
-	constructor: ->
-		@tile = null
+	constructor: (@room) ->
 		@speed = 0.25
+		@tile = null
 
 		# Use a temporary mesh.
 		geometry = new THREE.CubeGeometry(Const.tileSize, Const.tileSize, Const.tileSize)
@@ -16,6 +16,19 @@ module.exports = class Player
 
 		@object = mesh
 		@object
+
+	# TODO: Using the speed time to chain animations is a hack. Use TWEEN.js's
+	# chaining system to chain animations.
+	moveAlong: (path) ->
+		return unless path.length
+
+		coordPair = path.shift()
+		nextTile = @room.tiles[coordPair[0]][coordPair[1]]
+		time = @moveTo(nextTile)
+
+		setTimeout(=>
+			@moveAlong(path)
+		, time)
 
 	moveTo: (tile) ->
 		return unless tile
@@ -38,3 +51,4 @@ module.exports = class Player
 			.start()
 
 		@tile = tile
+		time

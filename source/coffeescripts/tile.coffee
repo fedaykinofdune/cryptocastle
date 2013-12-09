@@ -3,19 +3,16 @@ THREE = require('three')
 Const = require('./constants')
 
 module.exports = class Tile 
-	constructor: (@xPos, @yPos, @zPos) ->
+	constructor: (@xPos, @yPos, @zPos, @xGrid, @yGrid) ->
 		@edges = {}
 
 		material = new THREE.MeshBasicMaterial(color: 0xcccccc)
+		material.side = THREE.DoubleSide
 		geometry = new THREE.PlaneGeometry(Const.tileSize, Const.tileSize)
-		tile = new THREE.Mesh(geometry, material)
-		tile.position.x = @xPos
-		tile.position.y = @yPos
-		tile.position.z = @zPos - 1
-		tile.rotation.y = Math.PI
-		tile.visible = false
+		@object = new THREE.Mesh(geometry, material)
+		@object.position.set(@xPos, @yPos, @zPos)
+		@object.visible = false
 
-		@object = tile
 		@object
 
 	# Use tile positions to associate them using a direction vector.

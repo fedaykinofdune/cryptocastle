@@ -14,12 +14,16 @@
     "tween": "TWEEN"
   },
   "browserify": {
-    "transform": [ "browserify-shim" ]
+    "transform": [
+      "browserify-shim"
+    ]
   },
   "dependencies": {
     "browserify": "~2.36.1",
     "browserify-shim": "~3.0.4",
-    "coffee-script": "~1.6.3"
+    "coffee-script": "~1.6.3",
+    "pathfinding": "~0.4.4",
+    "underscore": "~1.5.2"
   },
   "devDependencies": {},
   "scripts": {
