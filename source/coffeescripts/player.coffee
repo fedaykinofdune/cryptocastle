@@ -8,6 +8,8 @@ module.exports = class Player
 	constructor: (@room) ->
 		@speed = 0.25
 		@tile = null
+		@lastTween = null
+		@targetTile = null
 
 		# Use a temporary mesh.
 		geometry = new THREE.CubeGeometry(Const.tileSize, Const.tileSize, Const.tileSize)
@@ -17,38 +19,40 @@ module.exports = class Player
 		@object = mesh
 		@object
 
-	# TODO: Using the speed time to chain animations is a hack. Use TWEEN.js's
-	# chaining system to chain animations.
 	moveAlong: (path) ->
-		return unless path.length
+		return unless path.length > 1
 
-		coordPair = path.shift()
-		nextTile = @room.tiles[coordPair[0]][coordPair[1]]
-		time = @moveTo(nextTile)
+		lastCoordPair = path[path.length - 1]
+		@targetTile = @room.tiles[lastCoordPair[0]][lastCoordPair[1]]
 
-		setTimeout(=>
-			@moveAlong(path)
-		, time)
+		tweens = []
 
-	moveTo: (tile) ->
-		return unless tile
+		for coordPair, index in path when index < path.length - 1
+			currentTile = @room.tiles[coordPair[0]][coordPair[1]]
+			nextCoordPair = path[index + 1]
+			nextTile = @room.tiles[nextCoordPair[0]][nextCoordPair[1]]
+
+			firstTween = index is 0
+			tween = @_animateTo(currentTile, nextTile, firstTween)
+			tweens[index - 1]?.chain(tween)
+			tweens.push(tween)
+
+		@lastTween?.stop()
+		@lastTween = tweens[0]
+		@lastTween.start()
+
+	placeOn: (tile) ->
 		return if @tile is tile
 
-		tile = tile.object if tile instanceof Tile
-
-		time = 0
-		time = @tile.position.distanceTo(tile.position) / @speed if @tile
-
-		position = @object.position.clone()
-		target =
-			x: tile.position.x + Const.tileSize / 2,
-			y: tile.position.z + Const.tileSize,
-			z: tile.position.y + Const.tileSize / 2
-
-		new TWEEN.Tween(position)
-			.to(target, time)
-			.onUpdate(=> @object.position.copy(position))
-			.start()
-
 		@tile = tile
-		time
+		@object.position = tile.notch()
+
+	_animateTo: (startTile, nextTile, firstTween = false) ->
+		startPosition = if firstTween then @object.position.clone() else startTile.notch()
+		nextPosition = nextTile.notch()
+		time = startPosition.distanceTo(nextPosition) / @speed
+
+		new TWEEN.Tween(startPosition)
+			.to(nextPosition, time)
+			.onUpdate(=> @object.position.copy(startPosition))
+			.onComplete(=> @tile = nextTile)

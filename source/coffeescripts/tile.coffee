@@ -21,3 +21,10 @@ module.exports = class Tile
 		direction = new THREE.Vector2(tile.xPos - @xPos, tile.yPos - @yPos)
 		direction = direction.divideScalar(Const.tileSize)
 		@edges["#{direction.x} #{direction.y}"] = tile
+
+	notch: ->
+		new THREE.Vector3(
+			@object.position.x + Const.tileSize / 2,
+			@object.position.z + Const.tileSize,
+			@object.position.y + Const.tileSize / 2
+		)

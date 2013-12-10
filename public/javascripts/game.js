@@ -5594,7 +5594,7 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
       this.scene.add(this.room.object);
       this.scene.add(new THREE.AxisHelper(200));
       this.player = new Player(this.room);
-      this.player.moveTo(this.room.tiles[this.floorWidth - 1][4]);
+      this.player.placeOn(this.room.tiles[this.floorWidth - 1][4]);
       this.scene.add(this.player.object);
       console.log('Game launched!');
     }
@@ -5648,13 +5648,18 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
     };
 
     Game.prototype._movePlayer = function(event) {
-      var intersectedTileMesh, path, sourceTile, targetTile;
+      var intersectedTileMesh, path, targetTile;
       event.preventDefault();
       intersectedTileMesh = this._getIntersectedTile();
-      sourceTile = this.room.mesh2tileObj(this.player.tile);
       targetTile = this.room.mesh2tileObj(intersectedTileMesh);
-      path = this.pathfinder.findPath(sourceTile.xGrid, sourceTile.yGrid, targetTile.xGrid, targetTile.yGrid, this.grid.clone());
-      return this.player.moveAlong(path.slice(1));
+      if (!targetTile) {
+        return;
+      }
+      if (targetTile === this.player.targetTile) {
+        return;
+      }
+      path = this.pathfinder.findPath(this.player.tile.xGrid, this.player.tile.yGrid, targetTile.xGrid, targetTile.yGrid, this.grid.clone());
+      return this.player.moveAlong(path);
     };
 
     Game.prototype._updateGameSize = function() {
@@ -5720,6 +5725,8 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
       this.room = room;
       this.speed = 0.25;
       this.tile = null;
+      this.lastTween = null;
+      this.targetTile = null;
       geometry = new THREE.CubeGeometry(Const.tileSize, Const.tileSize, Const.tileSize);
       material = new THREE.MeshBasicMaterial({
         color: 0x777777
@@ -5730,46 +5737,57 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
     }
 
     Player.prototype.moveAlong = function(path) {
-      var coordPair, nextTile, time,
-        _this = this;
-      if (!path.length) {
+      var coordPair, currentTile, firstTween, index, lastCoordPair, nextCoordPair, nextTile, tween, tweens, _i, _len, _ref, _ref1;
+      if (!(path.length > 1)) {
         return;
       }
-      coordPair = path.shift();
-      nextTile = this.room.tiles[coordPair[0]][coordPair[1]];
-      time = this.moveTo(nextTile);
-      return setTimeout(function() {
-        return _this.moveAlong(path);
-      }, time);
+      lastCoordPair = path[path.length - 1];
+      this.targetTile = this.room.tiles[lastCoordPair[0]][lastCoordPair[1]];
+      tweens = [];
+      for (index = _i = 0, _len = path.length; _i < _len; index = ++_i) {
+        coordPair = path[index];
+        if (!(index < path.length - 1)) {
+          continue;
+        }
+        currentTile = this.room.tiles[coordPair[0]][coordPair[1]];
+        nextCoordPair = path[index + 1];
+        nextTile = this.room.tiles[nextCoordPair[0]][nextCoordPair[1]];
+        firstTween = index === 0;
+        tween = this._animateTo(currentTile, nextTile, firstTween);
+        if ((_ref = tweens[index - 1]) != null) {
+          _ref.chain(tween);
+        }
+        tweens.push(tween);
+      }
+      if ((_ref1 = this.lastTween) != null) {
+        _ref1.stop();
+      }
+      this.lastTween = tweens[0];
+      return this.lastTween.start();
     };
 
-    Player.prototype.moveTo = function(tile) {
-      var position, target, time,
-        _this = this;
-      if (!tile) {
-        return;
-      }
+    Player.prototype.placeOn = function(tile) {
       if (this.tile === tile) {
         return;
       }
-      if (tile instanceof Tile) {
-        tile = tile.object;
-      }
-      time = 0;
-      if (this.tile) {
-        time = this.tile.position.distanceTo(tile.position) / this.speed;
-      }
-      position = this.object.position.clone();
-      target = {
-        x: tile.position.x + Const.tileSize / 2,
-        y: tile.position.z + Const.tileSize,
-        z: tile.position.y + Const.tileSize / 2
-      };
-      new TWEEN.Tween(position).to(target, time).onUpdate(function() {
-        return _this.object.position.copy(position);
-      }).start();
       this.tile = tile;
-      return time;
+      return this.object.position = tile.notch();
+    };
+
+    Player.prototype._animateTo = function(startTile, nextTile, firstTween) {
+      var nextPosition, startPosition, time,
+        _this = this;
+      if (firstTween == null) {
+        firstTween = false;
+      }
+      startPosition = firstTween ? this.object.position.clone() : startTile.notch();
+      nextPosition = nextTile.notch();
+      time = startPosition.distanceTo(nextPosition) / this.speed;
+      return new TWEEN.Tween(startPosition).to(nextPosition, time).onUpdate(function() {
+        return _this.object.position.copy(startPosition);
+      }).onComplete(function() {
+        return _this.tile = nextTile;
+      });
     };
 
     return Player;
@@ -5926,6 +5944,10 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
       direction = new THREE.Vector2(tile.xPos - this.xPos, tile.yPos - this.yPos);
       direction = direction.divideScalar(Const.tileSize);
       return this.edges["" + direction.x + " " + direction.y] = tile;
+    };
+
+    Tile.prototype.notch = function() {
+      return new THREE.Vector3(this.object.position.x + Const.tileSize / 2, this.object.position.z + Const.tileSize, this.object.position.y + Const.tileSize / 2);
     };
 
     return Tile;

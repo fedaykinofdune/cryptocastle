@@ -36,7 +36,7 @@ class Game
 		@scene.add(new THREE.AxisHelper(200))
 
 		@player = new Player(@room)
-		@player.moveTo(@room.tiles[@floorWidth - 1][4])
+		@player.placeOn(@room.tiles[@floorWidth - 1][4])
 		@scene.add(@player.object)
 
 		console.log('Game launched!')
@@ -73,25 +73,27 @@ class Game
 
 	_getMousePosition: (event) ->
 		event.preventDefault()
-		@mousePos ?= new THREE.Vector3(0, 0, 0.5);
+		@mousePos ?= new THREE.Vector3(0, 0, 0.5)
 		@mousePos.x = (event.clientX / window.innerWidth) * 2 - 1
 		@mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1
 
 	_movePlayer: (event) ->
 		event.preventDefault()
-
 		intersectedTileMesh = @_getIntersectedTile()
-		sourceTile = @room.mesh2tileObj(@player.tile)
+
 		targetTile = @room.mesh2tileObj(intersectedTileMesh)
 
+		return unless targetTile
+		return if targetTile is @player.targetTile
+
 		path = @pathfinder.findPath(
-			sourceTile.xGrid,
-			sourceTile.yGrid,
-			targetTile.xGrid,
+			@player.tile.xGrid
+			@player.tile.yGrid
+			targetTile.xGrid
 			targetTile.yGrid
 			@grid.clone())	
 
-		@player.moveAlong(path.slice(1))
+		@player.moveAlong(path)
 
 	_updateGameSize: ->
 		width = window.innerWidth / 2
