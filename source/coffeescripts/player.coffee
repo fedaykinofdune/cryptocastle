@@ -6,17 +6,21 @@ Const = require('./constants')
 
 module.exports = class Player
 	constructor: (@room) ->
-		@speed = 0.25
+		@speed = 0.15
 		@tile = null
 		@lastTween = null
 		@targetTile = null
 
-		# Use a temporary mesh.
-		geometry = new THREE.CubeGeometry(Const.tileSize, Const.tileSize, Const.tileSize)
-		material = new THREE.MeshBasicMaterial(color: 0x777777)
-		mesh = new THREE.Mesh(geometry, material)
+		# Use a temporary player sprite.
+		texture = new THREE.ImageUtils.loadTexture('/images/player-south.png')
+		material = new THREE.SpriteMaterial(map: texture)
+		sprite = new THREE.Sprite(material)
+		image = material.map.image
+		image.onload = (->
+			sprite.scale.set(image.width * 2, image.height * 2, 1)
+		)
 
-		@object = mesh
+		@object = sprite 
 		@object
 
 	moveAlong: (path) ->

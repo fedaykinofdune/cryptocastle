@@ -119,7 +119,7 @@ class Game
 		height = window.innerHeight / 2
 		@camera = new THREE.OrthographicCamera(-width, width, height, -height, -500, 1000)
 		@camera.position = new THREE.Vector3(100, 100, 100)
-		@camera.scale.set(0.5, 0.5, 0.5)
+		@camera.scale.set(0.4, 0.4, 0.4)
 		@camera.lookAt(Const.origin)
 		@camera.position.x /= 2
 		@camera.position.z /= 2

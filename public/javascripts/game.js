@@ -5688,7 +5688,7 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
       height = window.innerHeight / 2;
       this.camera = new THREE.OrthographicCamera(-width, width, height, -height, -500, 1000);
       this.camera.position = new THREE.Vector3(100, 100, 100);
-      this.camera.scale.set(0.5, 0.5, 0.5);
+      this.camera.scale.set(0.4, 0.4, 0.4);
       this.camera.lookAt(Const.origin);
       this.camera.position.x /= 2;
       return this.camera.position.z /= 2;
@@ -5721,18 +5721,22 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
 
   module.exports = Player = (function() {
     function Player(room) {
-      var geometry, material, mesh;
+      var image, material, sprite, texture;
       this.room = room;
-      this.speed = 0.25;
+      this.speed = 0.15;
       this.tile = null;
       this.lastTween = null;
       this.targetTile = null;
-      geometry = new THREE.CubeGeometry(Const.tileSize, Const.tileSize, Const.tileSize);
-      material = new THREE.MeshBasicMaterial({
-        color: 0x777777
+      texture = new THREE.ImageUtils.loadTexture('/images/player-south.png');
+      material = new THREE.SpriteMaterial({
+        map: texture
       });
-      mesh = new THREE.Mesh(geometry, material);
-      this.object = mesh;
+      sprite = new THREE.Sprite(material);
+      image = material.map.image;
+      image.onload = (function() {
+        return sprite.scale.set(image.width * 2, image.height * 2, 1);
+      });
+      this.object = sprite;
       this.object;
     }
 
