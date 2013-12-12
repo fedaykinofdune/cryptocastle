@@ -5609,16 +5609,21 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
     }
 
     Game.prototype.placeOn = function(prop, tile) {
-      var x, xIndex, y, yIndex, _i, _j, _ref, _ref1;
-      for (x = _i = 0, _ref = prop.xGridSize(); 0 <= _ref ? _i < _ref : _i > _ref; x = 0 <= _ref ? ++_i : --_i) {
-        for (y = _j = 0, _ref1 = prop.yGridSize(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; y = 0 <= _ref1 ? ++_j : --_j) {
-          xIndex = x + tile.xGrid - prop.xPivot;
-          yIndex = y + tile.yGrid - prop.yPivot;
-          this.grid.setWalkableAt(xIndex, yIndex, false);
-        }
-      }
       prop.placeOn(tile);
+      this._gridSetPropWalkable(prop, false);
       return this.scene.add(prop.object);
+    };
+
+    Game.prototype.rotateRight = function(prop) {
+      this._gridSetPropWalkable(prop);
+      prop.rotateRight();
+      return this._gridSetPropWalkable(prop, false);
+    };
+
+    Game.prototype.rotateLeft = function(prop) {
+      this._gridSetPropWalkable(prop);
+      prop.rotateLeft();
+      return this._gridSetPropWalkable(prop, false);
     };
 
     Game.prototype.run = function() {
@@ -5628,6 +5633,27 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
       this.mesh.rotation.y += 0.01;
       this._handleTileIntersection();
       return this.renderer.render(this.scene, this.camera);
+    };
+
+    Game.prototype._gridSetPropWalkable = function(prop, walkable) {
+      var x, xIndex, y, yIndex, _i, _ref, _results;
+      if (walkable == null) {
+        walkable = true;
+      }
+      _results = [];
+      for (x = _i = 0, _ref = prop.xGridSize(); 0 <= _ref ? _i < _ref : _i > _ref; x = 0 <= _ref ? ++_i : --_i) {
+        _results.push((function() {
+          var _j, _ref1, _results1;
+          _results1 = [];
+          for (y = _j = 0, _ref1 = prop.yGridSize(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; y = 0 <= _ref1 ? ++_j : --_j) {
+            xIndex = x + prop.tile.xGrid - prop.xPivot;
+            yIndex = y + prop.tile.yGrid - prop.yPivot;
+            _results1.push(this.grid.setWalkableAt(xIndex, yIndex, walkable));
+          }
+          return _results1;
+        }).call(this));
+      }
+      return _results;
     };
 
     Game.prototype._handleTileIntersection = function() {
@@ -5838,20 +5864,17 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
 
     Prop.prototype.placeOn = function(tile) {
       var _this = this;
-      if (this.tile === tile) {
-        return;
-      }
       this.tile = tile;
-      this.object.position = tile.notch();
+      this.object.position = this.tile.notch();
       if (this.object instanceof THREE.Sprite) {
         $(this).on('spriteLoaded', function() {
-          return _this.object.position = _this._notchPosition(tile);
+          return _this.object.position = _this._notchPosition(_this.tile);
         });
       }
       if (this.object instanceof THREE.Mesh) {
-        this.object.position.x += (this.yGridSize() - 1) * Const.tileSize / 2;
+        this.object.position.x += (this.yGridSize() - 1) * Const.tileSize / 2 - (this.yPivot * Const.tileSize);
         this.object.position.y += this.object.geometry.height / 2;
-        return this.object.position.z -= (this.xGridSize() - 1) * Const.tileSize / 2;
+        return this.object.position.z -= (this.xGridSize() - 1) * Const.tileSize / 2 - (this.xPivot * Const.tileSize);
       }
     };
 
@@ -5872,10 +5895,11 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
         rotations = 1;
       }
       if (rotations < 1) {
-        return this.layout;
+        return this.placeOn(this.tile);
       }
       this._transposeLayout();
       this._flipLayoutX();
+      this.object.rotation.y += Math.PI / 2;
       rotations = (rotations - 1) % 4;
       return this.rotateRight(rotations);
     };
@@ -5886,7 +5910,7 @@ var process=require("__browserify_process"),global=typeof self !== "undefined" ?
         rotations = 1;
       }
       if (rotations < 1) {
-        return this.layout;
+        return this.placeOn(this.tile);
       }
       rotationRights = 4 - (rotations % 4);
       return this.rotateRight(rotationRights);

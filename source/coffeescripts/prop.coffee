@@ -11,6 +11,7 @@ Const = require('./constants')
 
 module.exports = class Prop
 	constructor: (spriteTexturePath) ->
+		# TODO: Layout is actually not needed. All we need is width and height.
 		@layout ?= [[]]
 		@xPivot ?= 0
 		@yPivot ?= 0
@@ -21,37 +22,34 @@ module.exports = class Prop
 
 		@object
 
-	placeOn: (tile) ->
-		return if @tile is tile
-
-		@tile = tile
-
-		@object.position = tile.notch()
+	placeOn: (@tile) ->
+		@object.position = @tile.notch()
 
 		# TODO: Make this work for non 1x1 tile sprites. somehow adjust the
 		# inital position of the table in relation to (xPivot, yPivot) and
 		# (tile.xGrid, tile.yGrid)
 		if @object instanceof THREE.Sprite
 			$(@).on('spriteLoaded', =>
-				@object.position = @_notchPosition(tile)
+				@object.position = @_notchPosition(@tile)
 			)
 
 		if @object instanceof THREE.Mesh
-			@object.position.x += (@yGridSize() - 1) * Const.tileSize / 2
+			@object.position.x += (@yGridSize() - 1) * Const.tileSize / 2 - (@yPivot * Const.tileSize)
 			@object.position.y += @object.geometry.height / 2
-			@object.position.z -= (@xGridSize() - 1) * Const.tileSize / 2
+			@object.position.z -= (@xGridSize() - 1) * Const.tileSize / 2 - (@xPivot * Const.tileSize)
 
 	xGridSize: -> @layout[0].length
 
 	yGridSize: -> if @xGridSize() > 0 then @layout.length else 0
 
 	rotateRight: (rotations = 1)->
-		return @layout if rotations < 1
+		return @placeOn(@tile) if rotations < 1
 
 		# A rotation to the right is equivalent to a transpose followed by a
 		# reflection on the x-axis.
 		@_transposeLayout()
 		@_flipLayoutX()
+		@object.rotation.y += Math.PI / 2
 
 		# This is sort of lame but, computationally speaking, we will only make
 		# at most 4 recursive calls.
@@ -59,7 +57,7 @@ module.exports = class Prop
 		@rotateRight(rotations)
 
 	rotateLeft: (rotations = 1) ->
-		return @layout if rotations < 1
+		return @placeOn(@tile) if rotations < 1
 
 		rotationRights = 4 - (rotations % 4)
 		@rotateRight(rotationRights)

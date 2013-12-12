@@ -53,14 +53,19 @@ class Game
 		$(window).resize(@_updateGameSize.bind(@))
 
 	placeOn: (prop, tile) ->
-		for x in [0...prop.xGridSize()]
-			for y in [0...prop.yGridSize()]
-				xIndex = x + tile.xGrid - prop.xPivot
-				yIndex = y + tile.yGrid - prop.yPivot
-				@grid.setWalkableAt(xIndex, yIndex, false)
-
 		prop.placeOn(tile)
+		@_gridSetPropWalkable(prop, false)
 		@scene.add(prop.object)
+
+	rotateRight: (prop) ->
+		@_gridSetPropWalkable(prop)
+		prop.rotateRight()	
+		@_gridSetPropWalkable(prop, false)
+
+	rotateLeft: (prop) ->
+		@_gridSetPropWalkable(prop)
+		prop.rotateLeft()
+		@_gridSetPropWalkable(prop, false)
 
 	run: ->
 		requestAnimationFrame(@run.bind(@))
@@ -70,6 +75,14 @@ class Game
 
 		@_handleTileIntersection()
 		@renderer.render(@scene, @camera)
+
+	# Considering a prop and it's pivot tile, place the prop on the AI grid.
+	_gridSetPropWalkable: (prop, walkable = true) ->
+		for x in [0...prop.xGridSize()]
+			for y in [0...prop.yGridSize()]
+				xIndex = x + prop.tile.xGrid - prop.xPivot
+				yIndex = y + prop.tile.yGrid - prop.yPivot
+				@grid.setWalkableAt(xIndex, yIndex, walkable)
 
 	# TODO: Don't light up tiles. In fact, the tiles should not even have
 	# meshes. Instead light up the Face3s of the floor.
