@@ -1,27 +1,17 @@
 THREE = require('three')
 TWEEN = require('tween')
 
+Prop  = require('./prop')
 Tile  = require('./tile')
 Const = require('./constants')
 
-module.exports = class Player
+module.exports = class Player extends Prop
 	constructor: (@room) ->
 		@speed = 0.15
-		@tile = null
 		@lastTween = null
 		@targetTile = null
 
-		# Use a temporary player sprite.
-		texture = new THREE.ImageUtils.loadTexture('/images/player-south.png')
-		material = new THREE.SpriteMaterial(map: texture)
-		sprite = new THREE.Sprite(material)
-		image = material.map.image
-		image.onload = (->
-			sprite.scale.set(image.width * 2, image.height * 2, 1)
-		)
-
-		@object = sprite 
-		@object
+		super('/images/player-south.png')
 
 	moveAlong: (path) ->
 		return unless path.length > 1
@@ -45,15 +35,9 @@ module.exports = class Player
 		@lastTween = tweens[0]
 		@lastTween.start()
 
-	placeOn: (tile) ->
-		return if @tile is tile
-
-		@tile = tile
-		@object.position = tile.notch()
-
 	_animateTo: (startTile, nextTile, firstTween = false) ->
-		startPosition = if firstTween then @object.position.clone() else startTile.notch()
-		nextPosition = nextTile.notch()
+		startPosition = if firstTween then @object.position.clone() else @_notchPosition(startTile)
+		nextPosition = @_notchPosition(nextTile)
 		time = startPosition.distanceTo(nextPosition) / @speed
 
 		new TWEEN.Tween(startPosition)

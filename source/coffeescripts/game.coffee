@@ -3,6 +3,7 @@ TWEEN  = require('tween')
 PF     = require('pathfinding')
 $      = require('jquery')
 
+Props  = require('./props')
 Room   = require('./room')
 Const  = require('./constants')
 Player = require('./player')
@@ -11,11 +12,15 @@ class Game
 	constructor: ->
 		@mousePos = null
 		@prevIntersectedTile = null
-		@floorWidth = 10
-		@floorHeight = 10
+		@xFloor = 10
+		@yFloor = 10
+		@yWall = 5
 
 		@_setupRenderer()
 		@_setupScene()
+
+		@grid = new PF.Grid(@xFloor, @yFloor)
+		@pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
 
 		# Add a test mesh.
 		geometry = new THREE.CubeGeometry(50, 50, 50)
@@ -24,22 +29,38 @@ class Game
 		@mesh.position.y = 100
 		@scene.add(@mesh)
 
+		@room = new Room(@xFloor, @yWall, @yFloor)
+		@scene.add(@room.object)
+		@scene.add(new THREE.AxisHelper(200))
+
+		# Add a light.
+		roomCenter = @room.tiles[Math.floor(@xFloor / 2)][Math.floor(@yFloor / 2)].notch()
+		light = new THREE.PointLight()
+		light.position.set(roomCenter.x, @yWall * Const.tileSize, roomCenter.z);
+		@scene.add(light)
+
+		# Add a dice table.
+		table = new Props.DiceTable()
+		@placeOn(table, @room.tiles[Math.floor(@xFloor / 2) - 1][1])
+
+		# Add a player.
+		@player = new Player(@room)
+		@player.placeOn(@room.tiles[@xFloor - 1][Math.floor(@yFloor / 2)])
+		@scene.add(@player.object)
+
 		$(document).mousemove(@_getMousePosition.bind(@))
 		$(document).click(@_movePlayer.bind(@))
 		$(window).resize(@_updateGameSize.bind(@))
 
-		@grid = new PF.Grid(@floorWidth, @floorHeight)
-		@pathfinder = new PF.AStarFinder(allowDiagonal: true)
+	placeOn: (prop, tile) ->
+		for x in [0...prop.xGridSize()]
+			for y in [0...prop.yGridSize()]
+				xIndex = x + tile.xGrid - prop.xPivot
+				yIndex = y + tile.yGrid - prop.yPivot
+				@grid.setWalkableAt(xIndex, yIndex, false)
 
-		@room = new Room(@floorWidth, 5, @floorHeight)
-		@scene.add(@room.object)
-		@scene.add(new THREE.AxisHelper(200))
-
-		@player = new Player(@room)
-		@player.placeOn(@room.tiles[@floorWidth - 1][4])
-		@scene.add(@player.object)
-
-		console.log('Game launched!')
+		prop.placeOn(tile)
+		@scene.add(prop.object)
 
 	run: ->
 		requestAnimationFrame(@run.bind(@))
@@ -50,6 +71,8 @@ class Game
 		@_handleTileIntersection()
 		@renderer.render(@scene, @camera)
 
+	# TODO: Don't light up tiles. In fact, the tiles should not even have
+	# meshes. Instead light up the Face3s of the floor.
 	_handleTileIntersection: ->
 		return unless @mousePos
 

@@ -6,8 +6,6 @@ Const = require('./constants')
 
 module.exports = class Room
 	constructor: (@xTiles, @yTiles, @zTiles) ->
-		console.log('Room code!')
-
 		sizeX = Const.tileSize * @xTiles
 		sizeY = Const.tileSize * @yTiles
 		sizeZ = Const.tileSize * @zTiles
