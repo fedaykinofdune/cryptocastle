@@ -10,7 +10,12 @@ module.exports = class Room
 		sizeY = Const.tileSize * @yTiles
 		sizeZ = Const.tileSize * @zTiles
 
-		# Build the isometric room.
+		# Build the isometric room. 
+		# TODO: Build the room mesh without several plane meshes and a rotation.
+		# Allow passing in an arbitrary 2d array of tile layout and procedurally
+		# generate the vertices for the walls and floors that will bound those
+		# tiles. This will create a custom THREE.Geometry. Now a rotation isn't
+		# necessary.
 		material = new THREE.MeshNormalMaterial()
 		material.side = THREE.DoubleSide
 		@floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @xTiles, @zTiles), material)
@@ -68,6 +73,8 @@ module.exports = class Room
 			@tiles[xIndex][yIndex] = new Tile(centroid.x, centroid.y, centroid.z - 1, xIndex, yIndex)
 
 		# Connect each tile to it's neighbours at sides and vertices.
+		# TODO: This code can likely go away since we are using Pathfinding.js
+		# instead of our own AI.
 		@_eachTile((tile, x, y) =>
 			tile.connect(@tiles[x + 1]?[y])
 			tile.connect(@tiles[x + 1]?[y + 1])

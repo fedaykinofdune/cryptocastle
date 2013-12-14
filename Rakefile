@@ -38,7 +38,7 @@ task build: :compile do
 
   FileUtils.mkdir_p(output)
   FileUtils.rm_f(outputFile)
-  `$(npm bin)/browserify . --fast -o #{outputFile}`
+  `$(npm bin)/browserify . --fast -t brfs -o #{outputFile}`
 
   if $?.to_i == 0
     puts "Built successfully as #{outputFile}"

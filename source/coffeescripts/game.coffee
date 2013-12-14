@@ -1,3 +1,4 @@
+fs     = require('fs')
 THREE  = require('three')
 TWEEN  = require('tween')
 PF     = require('pathfinding')
@@ -9,7 +10,10 @@ Const  = require('./constants')
 Player = require('./player')
 
 class Game
+	@modes: normal: 0, edit: 1
+
 	constructor: ->
+		@mode = Game.modes.normal
 		@mousePos = null
 		@prevIntersectedTile = null
 		@xFloor = 10
@@ -18,6 +22,8 @@ class Game
 
 		@_setupRenderer()
 		@_setupScene()
+		@_setupDOM()
+		@_setupEvents()
 
 		@grid = new PF.Grid(@xFloor, @yFloor)
 		@pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
@@ -47,10 +53,6 @@ class Game
 		@player = new Player(@room)
 		@player.placeOn(@room.tiles[@xFloor - 1][Math.floor(@yFloor / 2)])
 		@scene.add(@player.object)
-
-		$(document).mousemove(@_getMousePosition.bind(@))
-		$(document).click(@_movePlayer.bind(@))
-		$(window).resize(@_updateGameSize.bind(@))
 
 	placeOn: (prop, tile) ->
 		prop.placeOn(tile)
@@ -131,6 +133,20 @@ class Game
 
 		@player.moveAlong(path)
 
+	_setGameMode: (@mode) ->
+		radios = @uiNode.find('.game-modes input')
+		radios.prop('checked', false)
+		radios.eq(@mode).prop('checked', true)
+
+	_handleHotkey: (event) ->
+		switch event.which
+			when Const.keys.e 
+				event.preventDefault()
+				@_setGameMode(Game.modes.edit)
+			when Const.keys.n 
+				event.preventDefault()
+				@_setGameMode(Game.modes.normal)
+
 	_updateGameSize: ->
 		width = window.innerWidth / 2
 		height = window.innerHeight / 2
@@ -146,7 +162,6 @@ class Game
 		@projector = new THREE.Projector()
 		@renderer = new THREE.WebGLRenderer()
 		@renderer.setSize(window.innerWidth, window.innerHeight)
-		$('body').append(@renderer.domElement)
 
 	_setupScene: ->
 		@scene = new THREE.Scene()
@@ -160,6 +175,16 @@ class Game
 		@camera.position.x /= 2
 		@camera.position.z /= 2
 
+	_setupDOM: ->
+		@uiNode = $(fs.readFileSync("#{__dirname}/templates/ui.html"))
+		$('body').append(@renderer.domElement)
+		$('body').append(@uiNode)
+
+	_setupEvents: ->
+		$(@renderer.domElement).click(@_movePlayer.bind(@))
+		$(document).mousemove(@_getMousePosition.bind(@))
+		$(document).keydown(@_handleHotkey.bind(@))
+		$(window).resize(@_updateGameSize.bind(@))
 $ ->
 	game = new Game()
 	game.run()
