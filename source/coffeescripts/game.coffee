@@ -3,6 +3,7 @@ THREE  = require('three')
 TWEEN  = require('tween')
 PF     = require('pathfinding')
 $      = require('jquery')
+_ 	   = require('underscore')
 
 Props  = require('./props')
 Room   = require('./room')
@@ -15,46 +16,21 @@ class Game
 	constructor: ->
 		@mode = Game.modes.normal
 		@mousePos = null
-		@prevIntersectedTile = null
+		@mesh2objectHash = {}
 		@xFloor = 10
 		@yFloor = 10
 		@yWall = 5
+
+		@grid = new PF.Grid(@xFloor, @yFloor)
+		@pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
 
 		@_setupRenderer()
 		@_setupScene()
 		@_setupDOM()
 		@_setupEvents()
 
-		@grid = new PF.Grid(@xFloor, @yFloor)
-		@pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
-
-		# Add a test mesh.
-		geometry = new THREE.CubeGeometry(50, 50, 50)
-		material = new THREE.MeshBasicMaterial()
-		@mesh = new THREE.Mesh(geometry, material)
-		@mesh.position.y = 100
-		@scene.add(@mesh)
-
-		@room = new Room(@xFloor, @yWall, @yFloor)
-		@scene.add(@room.object)
-		@scene.add(new THREE.AxisHelper(200))
-
-		# Add a light.
-		roomCenter = @room.tiles[Math.floor(@xFloor / 2)][Math.floor(@yFloor / 2)].notch()
-		light = new THREE.PointLight()
-		light.position.set(roomCenter.x, @yWall * Const.tileSize, roomCenter.z);
-		@scene.add(light)
-
-		# Add a dice table.
-		table = new Props.DiceTable()
-		@placeOn(table, @room.tiles[Math.floor(@xFloor / 2) - 1][1])
-
-		# Add a player.
-		@player = new Player(@room)
-		@player.placeOn(@room.tiles[@xFloor - 1][Math.floor(@yFloor / 2)])
-		@scene.add(@player.object)
-
 	placeOn: (prop, tile) ->
+		@_mapClickableMeshes(prop)
 		prop.placeOn(tile)
 		@_gridSetPropWalkable(prop, false)
 		@scene.add(prop.object)
@@ -75,8 +51,16 @@ class Game
 		@mesh.rotation.x += 0.005
 		@mesh.rotation.y += 0.01
 
-		@_handleTileIntersection()
+		@_handleMeshMouseover()
 		@renderer.render(@scene, @camera)
+
+	# Used to map, say, a prop mesh to its respective Prop object.
+	_mapClickableMeshes: (entities) ->
+		entities = [entities] unless entities.length
+		for entity in _.flatten(entities)
+			@mesh2objectHash[entity.object.id] = entity
+
+	_mesh2object: (mesh) -> @mesh2objectHash[mesh.id]
 
 	# Considering a prop and it's pivot tile, place the prop on the AI grid.
 	_gridSetPropWalkable: (prop, walkable = true) ->
@@ -86,25 +70,34 @@ class Game
 				yIndex = y + prop.tile.yGrid - prop.yPivot
 				@grid.setWalkableAt(xIndex, yIndex, walkable)
 
-	# TODO: Don't light up tiles. In fact, the tiles should not even have
-	# meshes. Instead light up the Face3s of the floor.
-	_handleTileIntersection: ->
+	_handleMeshMouseover: ->
 		return unless @mousePos
 
-		intersectedTile = @_getIntersectedTile()
-		unless intersectedTile
-			return @prevIntersectedTile?.visible = false
+		intersectedMesh = @_getIntersectedMesh()
+		return unless intersectedMesh
 
-		if intersectedTile isnt @prevIntersectedTile
-			intersectedTile.visible = true
-			@prevIntersectedTile?.visible = false
-			@prevIntersectedTile = intersectedTile
+		@_handleTileMouseover(intersectedMesh) if intersectedMesh.name is 'tile'
 
-	_getIntersectedTile: ->
+	# TODO: Don't light up tiles. In fact, the tiles should not even have
+	# meshes. Instead light up the Face3s of the floor.
+	_handleTileMouseover: do ->
+		prevTile = null
+
+		((tile) =>
+			unless tile
+				return prevTile?.visible = false
+
+			if tile isnt prevTile
+				tile.visible = true
+				prevTile?.visible = false
+				prevTile = tile
+		)
+
+	_getIntersectedMesh: ->
 		ray = @projector.pickingRay(@mousePos.clone(), @camera)
 		intersects = ray.intersectObjects(@scene.children, true)
 
-		for intersect in intersects when intersect.object.parent.id is @room.floor.id
+		for intersect in intersects when @_mesh2object(intersect.object)
 			# There are twice as many Face3 objects as our Tile objects so we
 			# need to map to our range.
 			return intersect.object
@@ -115,20 +108,27 @@ class Game
 		@mousePos.x = (event.clientX / window.innerWidth) * 2 - 1
 		@mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1
 
-	_movePlayer: (event) ->
+	_handleGameClick: (event) ->
 		event.preventDefault()
-		intersectedTileMesh = @_getIntersectedTile()
 
-		targetTile = @room.mesh2tileObj(intersectedTileMesh)
+		intersectedMesh = @_getIntersectedMesh()
+		return unless intersectedMesh
 
-		return unless targetTile
-		return if targetTile is @player.targetTile
+		object = @_mesh2object(intersectedMesh)
+		if intersectedMesh.name is 'prop' and @mode is Game.modes.edit
+			@player.lift(object)
+
+		if intersectedMesh.name is 'tile' and @mode is Game.modes.normal
+			@_playerMoveAlong(object)
+
+	_playerMoveAlong: (tile) ->
+		return if tile is @player.tile
 
 		path = @pathfinder.findPath(
 			@player.tile.xGrid
 			@player.tile.yGrid
-			targetTile.xGrid
-			targetTile.yGrid
+			tile.xGrid
+			tile.yGrid
 			@grid.clone())	
 
 		@player.moveAlong(path)
@@ -137,6 +137,10 @@ class Game
 		radios = @uiNode.find('.game-modes input')
 		radios.prop('checked', false)
 		radios.eq(@mode).prop('checked', true)
+				
+	_handleUIClick: (event) ->
+		mode = Game.modes[event.target.value]
+		@mode = mode if mode
 
 	_handleHotkey: (event) ->
 		switch event.which
@@ -175,13 +179,41 @@ class Game
 		@camera.position.x /= 2
 		@camera.position.z /= 2
 
+		# Add a test mesh.
+		geometry = new THREE.CubeGeometry(50, 50, 50)
+		material = new THREE.MeshBasicMaterial()
+		@mesh = new THREE.Mesh(geometry, material)
+		@mesh.position.y = 100
+		@scene.add(@mesh)
+
+		@room = new Room(@xFloor, @yWall, @yFloor)
+		@scene.add(@room.object)
+		@scene.add(new THREE.AxisHelper(200))
+		@_mapClickableMeshes(@room.tiles)
+
+		# Add a light.
+		roomCenter = @room.tiles[Math.floor(@xFloor / 2)][Math.floor(@yFloor / 2)].notch()
+		light = new THREE.PointLight()
+		light.position.set(roomCenter.x, @yWall * Const.tileSize, roomCenter.z);
+		@scene.add(light)
+
+		# Add a dice table.
+		table = new Props.DiceTable()
+		@placeOn(table, @room.tiles[Math.floor(@xFloor / 2) - 1][1])
+
+		# Add a player.
+		@player = new Player(@room)
+		@player.placeOn(@room.tiles[@xFloor - 1][Math.floor(@yFloor / 2)])
+		@scene.add(@player.object)
+
 	_setupDOM: ->
 		@uiNode = $(fs.readFileSync("#{__dirname}/templates/ui.html"))
 		$('body').append(@renderer.domElement)
 		$('body').append(@uiNode)
 
 	_setupEvents: ->
-		$(@renderer.domElement).click(@_movePlayer.bind(@))
+		$(@renderer.domElement).click(@_handleGameClick.bind(@))
+		$(@uiNode).change(@_handleUIClick.bind(@))
 		$(document).mousemove(@_getMousePosition.bind(@))
 		$(document).keydown(@_handleHotkey.bind(@))
 		$(window).resize(@_updateGameSize.bind(@))

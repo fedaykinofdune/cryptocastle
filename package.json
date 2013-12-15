@@ -24,7 +24,8 @@
     "coffee-script": "~1.6.3",
     "pathfinding": "~0.4.4",
     "underscore": "~1.5.2",
-    "brfs": "0.0.8"
+    "brfs": "0.0.8",
+    "uglify-js": "~2.4.7"
   },
   "devDependencies": {},
   "scripts": {

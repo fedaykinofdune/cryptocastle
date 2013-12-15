@@ -20,6 +20,7 @@ module.exports = class Prop
 
 		@_setSprite(spriteTexturePath) if spriteTexturePath
 
+		@object.name = 'prop'
 		@object
 
 	placeOn: (@tile) ->

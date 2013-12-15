@@ -13,6 +13,7 @@ module.exports = class Tile
 		@object.position.set(@xPos, @yPos, @zPos)
 		@object.visible = false
 
+		@object.name = 'tile'
 		@object
 
 	# Use tile positions to associate them using a direction vector.
