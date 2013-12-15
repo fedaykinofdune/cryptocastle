@@ -38,7 +38,13 @@ task build: :compile do
 
   FileUtils.mkdir_p(output)
   FileUtils.rm_f(outputFile)
-  `$(npm bin)/browserify . --fast -t brfs | $(npm bin)/uglifyjs -o #{outputFile}`
+
+  case ENV['ENV']
+  when 'production'
+    `$(npm bin)/browserify . --fast -t brfs | $(npm bin)/uglifyjs -o #{outputFile}`
+  else
+    `$(npm bin)/browserify . --fast -t brfs -o #{outputFile}`
+  end
 
   if $?.to_i == 0
     puts "Built successfully as #{outputFile}"

@@ -6,6 +6,7 @@
 # 	* @yPivot - A y-coordinate in @layout around which to apply rotations (default 0).
 
 THREE = require('three')
+_     = require('underscore')
 
 Const = require('./constants')
 
@@ -22,6 +23,17 @@ module.exports = class Prop
 
 		@object.name = 'prop'
 		@object
+
+	# Performs a deep copy of Prop, meaning its mesh and @layout variable get
+	# copied as well. 
+	# NOTE: This function will not extend to new complex attributes added to the
+	# class down the road. Primitives, nested arrays and objects are fine but
+	# stuff like THREE.Mesh will have to be manually cloned.
+	clone: ->
+		copy = $.extend(true, {}, @)
+		copy.object = @object.clone()
+		copy.object.material = @object.material.clone()
+		copy
 
 	placeOn: (@tile) ->
 		@object.position = @tile.notch()

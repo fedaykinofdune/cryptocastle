@@ -13,9 +13,6 @@ module.exports = class Player extends Prop
 
 		super('/images/player-south.png')
 
-	lift: (prop) ->
-		console.log("lifting prop!")
-
 	moveAlong: (path) ->
 		return unless path.length > 1
 

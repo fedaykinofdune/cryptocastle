@@ -18,22 +18,22 @@ module.exports = class Room
 		# necessary.
 		material = new THREE.MeshNormalMaterial()
 		material.side = THREE.DoubleSide
-		@floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @xTiles, @zTiles), material)
+		floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @xTiles, @zTiles), material)
 		leftWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeY), material)
 		rightWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeY, sizeZ), material)
 
-		@floor.rotation.x = Math.PI / 2
+		floor.rotation.x = Math.PI / 2
 		leftWall.rotation.y = Math.PI / 2
 		leftWall.position = new THREE.Vector3(-sizeX / 2, sizeY / 2, 0)
 		rightWall.rotation.z = Math.PI / 2
 		rightWall.position = new THREE.Vector3(0, sizeY / 2, -sizeZ / 2)
 
-		@_setupTiles(@floor)
-
 		@object = new THREE.Object3D()
-		@object.add(@floor)
+		@object.add(floor)
 		@object.add(leftWall)
 		@object.add(rightWall)
+
+		@_setupTiles(floor)
 
 		@object
 
@@ -84,5 +84,5 @@ module.exports = class Room
 			tile.connect(@tiles[x - 1]?[y - 1])
 			tile.connect(@tiles[x]?[y - 1])
 			tile.connect(@tiles[x + 1]?[y - 1])
-			@floor.add(tile.object)
+			floor.add(tile.object)
 		)

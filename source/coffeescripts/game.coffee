@@ -20,6 +20,7 @@ class Game
 		@xFloor = 10
 		@yFloor = 10
 		@yWall = 5
+		@_clearLiftedProp()
 
 		@grid = new PF.Grid(@xFloor, @yFloor)
 		@pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
@@ -29,20 +30,33 @@ class Game
 		@_setupDOM()
 		@_setupEvents()
 
-	placeOn: (prop, tile) ->
+	liftProp: (prop) ->
+		copy = prop.clone()
+		copy.object.material.transparent = true
+		copy.object.material.opacity = 0.5
+		@scene.add(copy.object)
+		@_setLiftedProp(prop, copy)
+
+	removeProp: (prop) ->
+		@_unmapClickableMeshes(prop)
+		@_gridSetPropWalkable(prop)
+		@scene.remove(prop.object)
+		@_clearLiftedProp() if prop is @liftedProp
+
+	placeProp: (prop, tile) ->
 		@_mapClickableMeshes(prop)
 		prop.placeOn(tile)
 		@_gridSetPropWalkable(prop, false)
 		@scene.add(prop.object)
 
-	rotateRight: (prop) ->
+	rotateRightProp: (prop) ->
 		@_gridSetPropWalkable(prop)
-		prop.rotateRight()	
+		prop.rotateRightProp()	
 		@_gridSetPropWalkable(prop, false)
 
-	rotateLeft: (prop) ->
+	rotateLeftProp: (prop) ->
 		@_gridSetPropWalkable(prop)
-		prop.rotateLeft()
+		prop.rotateLeftProp()
 		@_gridSetPropWalkable(prop, false)
 
 	run: ->
@@ -51,14 +65,41 @@ class Game
 		@mesh.rotation.x += 0.005
 		@mesh.rotation.y += 0.01
 
-		@_handleMeshMouseover()
+		@_handleTileMouseover()
+		@_handleLiftedPropHover()
 		@renderer.render(@scene, @camera)
+
+	_clearLiftedProp: -> 
+		@liftPoint = null
+		@liftedOriginalPosition = null
+		@liftedProp = null
+		@liftedPropGhost = null
+
+	_setLiftedProp: (original, ghost) ->
+		@liftPoint = @_getIntersectedPoint('tile')
+		@liftedOriginalPosition = original.object.position.clone()
+		@liftedProp = original
+		@liftedPropGhost = ghost
+
+	# Entities can be a single entity, an array or nested array of entities.
+	# Useful for being able to pass in a single Prop or a 2D array of Tiles.
+	_eachEntity: (entities, callback) ->
+		entities = [entities] unless entities.length
+
+		# We use _.flatten for convenience since entities could be passed in as
+		# a 2D array of tiles.
+		callback(entity) for entity in _.flatten(entities)
 
 	# Used to map, say, a prop mesh to its respective Prop object.
 	_mapClickableMeshes: (entities) ->
-		entities = [entities] unless entities.length
-		for entity in _.flatten(entities)
+		@_eachEntity(entities, (entity) =>
 			@mesh2objectHash[entity.object.id] = entity
+		)
+
+	_unmapClickableMeshes: (entities) ->
+		@_eachEntity(entities, (entity) =>
+			delete @mesh2objectHash[entity.object.id]
+		)
 
 	_mesh2object: (mesh) -> @mesh2objectHash[mesh.id]
 
@@ -70,37 +111,43 @@ class Game
 				yIndex = y + prop.tile.yGrid - prop.yPivot
 				@grid.setWalkableAt(xIndex, yIndex, walkable)
 
-	_handleMeshMouseover: ->
-		return unless @mousePos
-
-		intersectedMesh = @_getIntersectedMesh()
-		return unless intersectedMesh
-
-		@_handleTileMouseover(intersectedMesh) if intersectedMesh.name is 'tile'
+	_handleLiftedPropHover: ->
+		return unless @liftedPropGhost
+		point = @_getIntersectedPoint('tile')
+		delta = @liftPoint.clone().sub(point)
+		@liftedPropGhost.object.position.subVectors(@liftedOriginalPosition, delta)
 
 	# TODO: Don't light up tiles. In fact, the tiles should not even have
 	# meshes. Instead light up the Face3s of the floor.
 	_handleTileMouseover: do ->
 		prevTile = null
 
-		((tile) =>
-			unless tile
+		(->
+			mesh = @_getIntersectedMesh('tile')
+			unless mesh
 				return prevTile?.visible = false
 
-			if tile isnt prevTile
-				tile.visible = true
+			if mesh isnt prevTile
 				prevTile?.visible = false
-				prevTile = tile
+				if mesh.name is 'tile'
+					mesh.visible = true
+					prevTile = mesh
 		)
 
-	_getIntersectedMesh: ->
+	_getIntersection: (nameFilter = null) ->
+		return unless @mousePos
 		ray = @projector.pickingRay(@mousePos.clone(), @camera)
 		intersects = ray.intersectObjects(@scene.children, true)
+		for intersect in intersects
+			continue unless @_mesh2object(intersect.object)
+			continue if nameFilter and intersect.object.name isnt nameFilter
+			return intersect
 
-		for intersect in intersects when @_mesh2object(intersect.object)
-			# There are twice as many Face3 objects as our Tile objects so we
-			# need to map to our range.
-			return intersect.object
+	_getIntersectedMesh: (nameFilter = null) ->
+		@_getIntersection(nameFilter)?.object
+
+	_getIntersectedPoint: (nameFilter = null) ->
+		@_getIntersection(nameFilter)?.point
 
 	_getMousePosition: (event) ->
 		event.preventDefault()
@@ -115,11 +162,19 @@ class Game
 		return unless intersectedMesh
 
 		object = @_mesh2object(intersectedMesh)
-		if intersectedMesh.name is 'prop' and @mode is Game.modes.edit
-			@player.lift(object)
+		switch @mode
+			when Game.modes.edit
+				if intersectedMesh.name is 'tile' and @liftedPropGhost
+					@liftedPropGhost.object.material.opacity = 1
+					@liftedPropGhost.object.material.transparent = false
+					@placeProp(@liftedPropGhost, object)
+					@removeProp(@liftedProp)
+				if intersectedMesh.name is 'prop' and not @liftedProp
+					@liftProp(object)
 
-		if intersectedMesh.name is 'tile' and @mode is Game.modes.normal
-			@_playerMoveAlong(object)
+			when Game.modes.normal
+				if intersectedMesh.name is 'tile'
+					@_playerMoveAlong(object)
 
 	_playerMoveAlong: (tile) ->
 		return if tile is @player.tile
@@ -199,7 +254,7 @@ class Game
 
 		# Add a dice table.
 		table = new Props.DiceTable()
-		@placeOn(table, @room.tiles[Math.floor(@xFloor / 2) - 1][1])
+		@placeProp(table, @room.tiles[Math.floor(@xFloor / 2) - 1][1])
 
 		# Add a player.
 		@player = new Player(@room)
