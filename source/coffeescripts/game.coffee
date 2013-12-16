@@ -16,6 +16,7 @@ class Game
 	constructor: ->
 		@mode = Game.modes.normal
 		@mousePos = null
+		@activeTile = null
 		@mesh2objectHash = {}
 		@xFloor = 10
 		@yFloor = 10
@@ -34,6 +35,11 @@ class Game
 		copy = prop.clone()
 		copy.object.material.transparent = true
 		copy.object.material.opacity = 0.5
+
+		# Make sure the ghost mesh gets dragged at its pivot point.
+		copy.xPivot += (@activeTile.xGrid - copy.tile.xGrid)
+		copy.yPivot += (@activeTile.yGrid - copy.tile.yGrid)
+
 		@scene.add(copy.object)
 		@_setLiftedProp(prop, copy)
 
@@ -111,28 +117,36 @@ class Game
 				yIndex = y + prop.tile.yGrid - prop.yPivot
 				@grid.setWalkableAt(xIndex, yIndex, walkable)
 
+	# TODO: There's a bug where the active tile can be just outside the prop
+	# while still selecting the prop for dragging. It's a minor bug but it can
+	# be fixed by adjusting the active tile to be the one directly under the
+	# prop intersection point.
 	_handleLiftedPropHover: ->
 		return unless @liftedPropGhost
-		point = @_getIntersectedPoint('tile')
-		delta = @liftPoint.clone().sub(point)
-		@liftedPropGhost.object.position.subVectors(@liftedOriginalPosition, delta)
+		if @activeTile
+			@liftedPropGhost.placeOn(@activeTile)
+			@activeTile.object.visible = false
+		else
+			# TODO: Push this logic into Prop. Also don't use the tile for
+			# intersection. Use an invisible plane so the prop can hover on the
+			# mouse pointer anywhere.
+			point = @_getIntersectedPoint('tile')
+			delta = @liftPoint.clone().sub(point)
+			@liftedPropGhost.object.position.subVectors(@liftedOriginalPosition, delta)
 
 	# TODO: Don't light up tiles. In fact, the tiles should not even have
 	# meshes. Instead light up the Face3s of the floor.
-	_handleTileMouseover: do ->
-		prevTile = null
+	_handleTileMouseover: ->
+		mesh = @_getIntersectedMesh('tile')
+		tileMesh = @activeTile?.object
+		unless mesh
+			return tileMesh?.visible = false
 
-		(->
-			mesh = @_getIntersectedMesh('tile')
-			unless mesh
-				return prevTile?.visible = false
-
-			if mesh isnt prevTile
-				prevTile?.visible = false
-				if mesh.name is 'tile'
-					mesh.visible = true
-					prevTile = mesh
-		)
+		if mesh isnt tileMesh
+			tileMesh?.visible = false
+			if mesh.name is 'tile'
+				mesh.visible = true
+				@activeTile = @_mesh2object(mesh)
 
 	_getIntersection: (nameFilter = null) ->
 		return unless @mousePos
@@ -155,6 +169,9 @@ class Game
 		@mousePos.x = (event.clientX / window.innerWidth) * 2 - 1
 		@mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1
 
+		# TODO: Get the intersected mesh on each mousemove event. Use it here to
+		# set the CSS grab icon when appropriate.
+
 	_handleGameClick: (event) ->
 		event.preventDefault()
 
@@ -175,6 +192,11 @@ class Game
 			when Game.modes.normal
 				if intersectedMesh.name is 'tile'
 					@_playerMoveAlong(object)
+
+	_handleRightClick: (event) ->
+		event.preventDefault()
+		if Game.modes.edit and @liftedPropGhost
+			@liftedPropGhost.rotateRight()
 
 	_playerMoveAlong: (tile) ->
 		return if tile is @player.tile
@@ -269,6 +291,7 @@ class Game
 	_setupEvents: ->
 		$(@renderer.domElement).click(@_handleGameClick.bind(@))
 		$(@uiNode).change(@_handleUIClick.bind(@))
+		$(document).bind('contextmenu', @_handleRightClick.bind(@))
 		$(document).mousemove(@_getMousePosition.bind(@))
 		$(document).keydown(@_handleHotkey.bind(@))
 		$(window).resize(@_updateGameSize.bind(@))

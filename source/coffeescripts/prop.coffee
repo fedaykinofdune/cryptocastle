@@ -62,6 +62,8 @@ module.exports = class Prop
 		# reflection on the x-axis.
 		@_transposeLayout()
 		@_flipLayoutX()
+
+		# TODO: Animate the rotation.
 		@object.rotation.y += Math.PI / 2
 
 		# This is sort of lame but, computationally speaking, we will only make
