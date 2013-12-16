@@ -172,6 +172,15 @@ class Game
 		# TODO: Get the intersected mesh on each mousemove event. Use it here to
 		# set the CSS grab icon when appropriate.
 
+	# Game uses @xFloor, @yFloor along with tile grid info and prop dimensions
+	# to determine if the prop will fit on the tile.
+	_propFitsOn: (tile, prop) ->
+		return false if tile.xGrid + prop.xGridSize() - prop.xPivot > @xFloor
+		return false if tile.xGrid - prop.xPivot < 0
+		return false if tile.yGrid + prop.yGridSize() - prop.yPivot > @yFloor	
+		return false if tile.yGrid - prop.yPivot < 0
+		true
+
 	_handleGameClick: (event) ->
 		event.preventDefault()
 
@@ -182,10 +191,11 @@ class Game
 		switch @mode
 			when Game.modes.edit
 				if intersectedMesh.name is 'tile' and @liftedPropGhost
-					@liftedPropGhost.object.material.opacity = 1
-					@liftedPropGhost.object.material.transparent = false
-					@placeProp(@liftedPropGhost, object)
-					@removeProp(@liftedProp)
+					if @_propFitsOn(object, @liftedPropGhost)
+						@liftedPropGhost.object.material.opacity = 1
+						@liftedPropGhost.object.material.transparent = false
+						@placeProp(@liftedPropGhost, object)
+						@removeProp(@liftedProp)
 				if intersectedMesh.name is 'prop' and not @liftedProp
 					@liftProp(object)
 

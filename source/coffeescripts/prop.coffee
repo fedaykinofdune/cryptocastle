@@ -13,6 +13,8 @@ Const = require('./constants')
 module.exports = class Prop
 	constructor: (spriteTexturePath) ->
 		# TODO: Layout is actually not needed. All we need is width and height.
+		# TODO: @xPivot and @yPivot are actually not needed. @tile can be used
+		# as an implicit market for the pivot point.
 		@layout ?= [[]]
 		@xPivot ?= 0
 		@yPivot ?= 0
