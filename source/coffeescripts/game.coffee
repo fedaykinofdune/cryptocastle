@@ -21,7 +21,7 @@ class Game
 		@xFloor = 10
 		@yFloor = 10
 		@yWall = 5
-		@_clearLiftedProp()
+		@_forgetLiftedProp()
 
 		@grid = new PF.Grid(@xFloor, @yFloor)
 		@pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
@@ -47,7 +47,6 @@ class Game
 		@_unmapClickableMeshes(prop)
 		@_gridSetPropWalkable(prop)
 		@scene.remove(prop.object)
-		@_clearLiftedProp() if prop is @liftedProp
 
 	placeProp: (prop, tile) ->
 		@_mapClickableMeshes(prop)
@@ -75,7 +74,7 @@ class Game
 		@_handleLiftedPropHover()
 		@renderer.render(@scene, @camera)
 
-	_clearLiftedProp: -> 
+	_forgetLiftedProp: -> 
 		@liftPoint = null
 		@liftedOriginalPosition = null
 		@liftedProp = null
@@ -110,12 +109,11 @@ class Game
 	_mesh2object: (mesh) -> @mesh2objectHash[mesh.id]
 
 	# Considering a prop and it's pivot tile, place the prop on the AI grid.
+	# TODO: Push this into an AI module.
 	_gridSetPropWalkable: (prop, walkable = true) ->
-		for x in [0...prop.xGridSize()]
-			for y in [0...prop.yGridSize()]
-				xIndex = x + prop.tile.xGrid - prop.xPivot
-				yIndex = y + prop.tile.yGrid - prop.yPivot
-				@grid.setWalkableAt(xIndex, yIndex, walkable)
+		prop.eachTile((xIndex, yIndex) =>
+			@grid.setWalkableAt(xIndex, yIndex, walkable)
+		)
 
 	# TODO: There's a bug where the active tile can be just outside the prop
 	# while still selecting the prop for dragging. It's a minor bug but it can
@@ -148,12 +146,19 @@ class Game
 				mesh.visible = true
 				@activeTile = @_mesh2object(mesh)
 
-	_getIntersection: (nameFilter = null) ->
-		return unless @mousePos
+	# Gets all ray intersections from the mouse pointer.
+	_getIntersections: ->
+		return [] unless @mousePos
 		ray = @projector.pickingRay(@mousePos.clone(), @camera)
-		intersects = ray.intersectObjects(@scene.children, true)
-		for intersect in intersects
-			continue unless @_mesh2object(intersect.object)
+		intersections = ray.intersectObjects(@scene.children, true)
+
+		# Filter out some dumb shit like axis helper, lights etc.
+		_.filter(intersections, (item) => @_mesh2object(item.object))
+
+	# Gets the first ray intersection from the mouse pointer.
+	_getIntersection: (nameFilter = null) ->
+		for intersect in @_getIntersections()
+			# Apply the name filter.
 			continue if nameFilter and intersect.object.name isnt nameFilter
 			return intersect
 
@@ -173,8 +178,15 @@ class Game
 		# set the CSS grab icon when appropriate.
 
 	# Game uses @xFloor, @yFloor along with tile grid info and prop dimensions
-	# to determine if the prop will fit on the tile.
-	_propFitsOn: (tile, prop) ->
+	# to determine if the prop fits on the tile. This is useful when moving
+	# around a potential candidate for placement (@liftedPropGhost).
+	_propGhostFitsOn: (tile) ->
+		prop = @liftedPropGhost
+		return false unless prop and tile
+
+		prop.eachTile((xIndex, yIndex) =>
+			return false unless @grid.isWalkableAt(xIndex, yIndex)
+		)
 		return false if tile.xGrid + prop.xGridSize() - prop.xPivot > @xFloor
 		return false if tile.xGrid - prop.xPivot < 0
 		return false if tile.yGrid + prop.yGridSize() - prop.yPivot > @yFloor	
@@ -184,30 +196,45 @@ class Game
 	_handleGameClick: (event) ->
 		event.preventDefault()
 
-		intersectedMesh = @_getIntersectedMesh()
-		return unless intersectedMesh
+		tileMesh = @_getIntersectedMesh('tile')
+		propMesh = @_getIntersectedMesh('prop')
 
-		object = @_mesh2object(intersectedMesh)
+		return unless tileMesh or propMesh
+
 		switch @mode
+			when Game.modes.normal
+				@_playerMoveAlong(@_mesh2object(tileMesh)) if tileMesh
+
 			when Game.modes.edit
-				if intersectedMesh.name is 'tile' and @liftedPropGhost
-					if @_propFitsOn(object, @liftedPropGhost)
+				# If we clicked on a mesh and we're not carrying a prop.
+				if propMesh and not @liftedPropGhost
+					@liftProp(@_mesh2object(propMesh))
+
+				# If we clicked on a tile and we're carrying a prop.
+				else if tileMesh and @liftedPropGhost
+
+					# We remove @liftedProp before anything else because
+					# sometimes we want to replace it in a way that overlaps its
+					# original position. We don't want that original position to
+					# get in the way of our placement computations.
+					liftedPropTile = @liftedProp.tile
+					@removeProp(@liftedProp)
+
+					tile = @_mesh2object(tileMesh)
+					if @_propGhostFitsOn(tile)
 						@liftedPropGhost.object.material.opacity = 1
 						@liftedPropGhost.object.material.transparent = false
-						@placeProp(@liftedPropGhost, object)
-						@removeProp(@liftedProp)
-				if intersectedMesh.name is 'prop' and not @liftedProp
-					@liftProp(object)
-
-			when Game.modes.normal
-				if intersectedMesh.name is 'tile'
-					@_playerMoveAlong(object)
+						@placeProp(@liftedPropGhost, tile)
+						@_forgetLiftedProp()
+					else
+						@placeProp(@liftedProp, liftedPropTile)
 
 	_handleRightClick: (event) ->
 		event.preventDefault()
 		if Game.modes.edit and @liftedPropGhost
 			@liftedPropGhost.rotateRight()
 
+	# TODO: Push this into an AI module.
 	_playerMoveAlong: (tile) ->
 		return if tile is @player.tile
 

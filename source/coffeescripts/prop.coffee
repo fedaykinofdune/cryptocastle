@@ -26,6 +26,15 @@ module.exports = class Prop
 		@object.name = 'prop'
 		@object
 
+	# Uses the main @tile and (@xPivot, @yPivot) coordinates to visit each tile
+	# the prop occupies.
+	eachTile: (callback) ->
+		for x in [0...@xGridSize()]
+			for y in [0...@yGridSize()]
+				xIndex = x + @tile.xGrid - @xPivot
+				yIndex = y + @tile.yGrid - @yPivot
+				callback(xIndex, yIndex)
+
 	# Performs a deep copy of Prop, meaning its mesh and @layout variable get
 	# copied as well. 
 	# NOTE: This function will not extend to new complex attributes added to the
