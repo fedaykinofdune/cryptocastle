@@ -16,7 +16,10 @@ class DiceTable extends Prop
 class Chair extends Prop
 	constructor: ->
 		@layout = [[true]]
-		@object = null
+		
+		geometry = new THREE.CubeGeometry(Const.tileSize * @yGridSize(), Const.tileSize / 2, Const.tileSize * @xGridSize())
+		material = new THREE.MeshLambertMaterial(color: 0xcccccc)
+		@object = new THREE.Mesh(geometry, material)
 
 		super()
 

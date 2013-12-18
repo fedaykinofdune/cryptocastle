@@ -4,8 +4,13 @@ body {
 	font-family: sans-serif;
 }
 
-canvas {
+canvas,
+button {
 	display: block;
+}
+
+button {
+	margin-bottom: 0.5em;
 }
 
 fieldset:last-child {

@@ -29,6 +29,7 @@ module.exports = class Prop
 	# Uses the main @tile and (@xPivot, @yPivot) coordinates to visit each tile
 	# the prop occupies.
 	eachTile: (callback) ->
+		return unless @tile
 		for x in [0...@xGridSize()]
 			for y in [0...@yGridSize()]
 				continue unless @layout[y][x]
