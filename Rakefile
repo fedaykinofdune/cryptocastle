@@ -7,7 +7,7 @@ task default: :build
 
 desc 'Start development server'
 task :serve do
-  `shotgun server.rb`
+  exec('$(npm bin)/nodemon server.coffee')
 end
 
 desc 'Compiles on file change'

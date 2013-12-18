@@ -1,6 +1,9 @@
 {
   "name": "bitcoinbet",
   "version": "0.0.0",
+  "engines": {
+    "node": "0.10.x"
+  },
   "description": "Bitcoin game",
   "main": "./source/javascripts/game.js",
   "browser": {
@@ -25,7 +28,10 @@
     "pathfinding": "~0.4.4",
     "underscore": "~1.5.2",
     "brfs": "0.0.8",
-    "uglify-js": "~2.4.7"
+    "uglify-js": "~2.4.7",
+    "express": "~3.4.7",
+    "jade": "~0.35.0",
+    "nodemon": "~0.7.10"
   },
   "devDependencies": {},
   "scripts": {
