@@ -31,6 +31,7 @@ module.exports = class Prop
 	eachTile: (callback) ->
 		for x in [0...@xGridSize()]
 			for y in [0...@yGridSize()]
+				continue unless @layout[y][x]
 				xIndex = x + @tile.xGrid - @xPivot
 				yIndex = y + @tile.yGrid - @yPivot
 				callback(xIndex, yIndex)
