@@ -4,13 +4,19 @@
 #	* @layout - 2D array of booleans to describe the tile layout of the prop (default [[]]).
 #	* @xPivot - An x-coordinate in @layout around which to apply rotations (default 0).
 # 	* @yPivot - A y-coordinate in @layout around which to apply rotations (default 0).
+#	* @object - A THREE.Mesh object (required).
 
 THREE = require('three')
+$     = require('jquery')
 _     = require('underscore')
 
 Const = require('./constants')
 
 module.exports = class Prop
+	@createFromJSON: (json) ->
+		prop = new @()
+		$.extend(prop, json)
+
 	constructor: (spriteTexturePath) ->
 		# TODO: Layout is actually not needed. All we need is width and height.
 		# TODO: @xPivot and @yPivot are actually not needed. @tile can be used
@@ -20,8 +26,6 @@ module.exports = class Prop
 		@yPivot ?= 0
 		@tile = null
 		@spriteHeight = null
-
-		@_setSprite(spriteTexturePath) if spriteTexturePath
 
 		@object.name = 'prop'
 		@object
@@ -115,14 +119,14 @@ module.exports = class Prop
 		@layout = newLayout
 		@layout
 
-	_setSprite: (spriteTexturePath) ->
+	_makeSprite: (spriteTexturePath) ->
 		texture = new THREE.ImageUtils.loadTexture(spriteTexturePath, null, (texture) =>
 			@object.scale.set(texture.image.width * 2, texture.image.height * 2, 1)
 			@spriteHeight = texture.image.height
 			$(@).trigger('spriteLoaded')
 		)
-		material = new THREE.SpriteMaterial(map: texture)
-		@object = new THREE.Sprite(material)
+		material = new THREE.SpriteMaterial(map: texture, color: Math.random() * 0xffffff)
+		new THREE.Sprite(material)
 
 	_notchPosition: (tile) ->
 		notch = tile.notch()

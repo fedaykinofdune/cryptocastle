@@ -8,10 +8,16 @@ Const = require('./constants')
 module.exports = class Player extends Prop
 	constructor: (@room) ->
 		@speed = 0.15
+		@color = Math.random() * 0xffffff
 		@lastTween = null
 		@targetTile = null
+		@object = @_makeSprite('/images/player-south.png')
 
-		super('/images/player-south.png')
+		super()
+
+	toJSON: ->
+		speed: @speed
+		color: @color
 
 	moveAlong: (path) ->
 		return unless path.length > 1

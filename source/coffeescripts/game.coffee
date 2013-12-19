@@ -78,7 +78,12 @@ class Game
 	_setupSocket: ->
 		host = location.origin.replace(/^http/, 'ws')
 		@_socket = new WebSocket(host)
-		@_socket.onmessage = ((event) ->
+		@_socket.onmessage = ((event) =>
+			# Add a player.
+			@_player = Player.createFromJSON(event.data.player)
+			@_player.room = @_room
+			@_player.placeOn(@_room.tiles[@_xFloor - 1][Math.floor(@_yFloor / 2)])
+			@_scene.add(@_player.object)
 			console.log(JSON.parse(event.data))
 		)
 
@@ -121,17 +126,33 @@ class Game
 		table = new Props.DiceTable()
 		@_placeProp(table, @_room.tiles[Math.floor(@_xFloor / 2) - 1][1])
 
-		# Add a player.
-		@_player = new Player(@_room)
-		@_player.placeOn(@_room.tiles[@_xFloor - 1][Math.floor(@_yFloor / 2)])
-		@_scene.add(@_player.object)
-
 	_setupEvents: ->
 		$(@_renderer.domElement).click(@_handleGameClick.bind(@))
 		$(document).bind('contextmenu', @_handleRightClick.bind(@))
 		$(document).mousemove(@_getMousePosition.bind(@))
 		$(document).keydown(@_handleHotkey.bind(@))
 		$(window).resize(@_updateGameSize.bind(@))
+
+	# Find the nearest tile to targetTile from sourceTile that is not occupied.
+	# TODO: This would most logically belong in Room, but Room does not have
+	# access to Game._grid. Restructure the code somehow so stuff doesn't keep
+	# getting shoved into Game just because it is the sole owner of Grid.
+	_nearestFreeTile: (sourceTile, targetTile) ->
+		nearestTile = null 
+		nearestDistance = Infinity
+
+		for radius in [0...5]
+			@_room.eachTileRing(targetTile, radius, (tile) =>
+				return unless @_grid.isWalkableAt(tile.xGrid, tile.yGrid)
+				distance = sourceTile.object.position.distanceTo(tile.object.position)
+				if distance < nearestDistance
+					nearestDistance = distance
+					nearestTile = tile
+			)
+
+			return nearestTile if nearestTile
+
+		sourceTile
 
 	_removeProp: (prop) ->
 		@_unmapClickableMeshes(prop)
@@ -330,6 +351,7 @@ class Game
 	_playerMoveAlong: (tile) ->
 		return if tile is @_player.tile
 
+		tile = @_nearestFreeTile(@_player.tile, tile)
 		path = @_pathfinder.findPath(
 			@_player.tile.xGrid
 			@_player.tile.yGrid

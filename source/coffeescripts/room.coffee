@@ -43,10 +43,22 @@ module.exports = class Room
 			for x in [0...@xTiles]
 				return @tiles[x][y] if @tiles[x][y].object is mesh
 
-	_eachTile: (callback) ->
-		for y in [0...@zTiles]		
-			for x in [0...@xTiles]
-				callback(@tiles[x][y], x, y)
+	# Iterate an outer ring around a given tile. Useful for Room.nearestFreeTile
+	# function.
+	eachTileRing: (centerTile, radius, callback) ->
+		return callback(centerTile) if radius is 0
+
+		for x in [(centerTile.xGrid - radius)...(centerTile.xGrid + radius)]
+			tileBottom = @tiles[x]?[centerTile.yGrid + radius]
+			tileTop = @tiles[x]?[centerTile.yGrid - radius]
+			callback(tileTop) if tileTop
+			callback(tileBottom) if tileBottom
+
+		for y in [(centerTile.yGrid - radius + 1)...(centerTile.yGrid + radius - 1)]
+			tileLeft = @tiles[centerTile.xGrid - radius]?[y]
+			tileRight = @tiles[centerTile.xGrid + radius]?[y]
+			callback(tileLeft) if tileLeft
+			callback(tileRight) if tileRight
 
 	_setupTiles: (floor) ->
 		# Build tiles based on the faces of the floor.
@@ -70,19 +82,7 @@ module.exports = class Room
 			xIndex = Math.floor(index / @xTiles / 2)
 			@tiles[xIndex] ?= []
 			yIndex = @tiles[xIndex].length
-			@tiles[xIndex][yIndex] = new Tile(centroid.x, centroid.y, centroid.z - 1, xIndex, yIndex)
 
-		# Connect each tile to it's neighbours at sides and vertices.
-		# TODO: This code can likely go away since we are using Pathfinding.js
-		# instead of our own AI.
-		@_eachTile((tile, x, y) =>
-			tile.connect(@tiles[x + 1]?[y])
-			tile.connect(@tiles[x + 1]?[y + 1])
-			tile.connect(@tiles[x]?[y + 1])
-			tile.connect(@tiles[x - 1]?[y + 1])
-			tile.connect(@tiles[x - 1]?[y])
-			tile.connect(@tiles[x - 1]?[y - 1])
-			tile.connect(@tiles[x]?[y - 1])
-			tile.connect(@tiles[x + 1]?[y - 1])
+			tile = new Tile(centroid.x, centroid.y, centroid.z - 1, xIndex, yIndex)
+			@tiles[xIndex][yIndex] = tile
 			floor.add(tile.object)
-		)
