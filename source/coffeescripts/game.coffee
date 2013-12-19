@@ -19,6 +19,7 @@ class Game
 	_renderer: null
 	_scene: null
 	_camera: null
+	_socket: null
 	_player: null
 	_room: null
 	_mousePos: null
@@ -40,6 +41,7 @@ class Game
 		@_renderer = new THREE.WebGLRenderer()
 		@_renderer.setSize(window.innerWidth, window.innerHeight)
 
+		@_setupSocket()
 		@_setupDOM()
 		@_setupScene()
 		@_setupEvents()
@@ -72,6 +74,13 @@ class Game
 		@_handleTileMouseover()
 		@_handleLiftedPropHover()
 		@_renderer.render(@_scene, @_camera)
+
+	_setupSocket: ->
+		host = location.origin.replace(/^http/, 'ws')
+		@_socket = new WebSocket(host)
+		@_socket.onmessage = ((event) ->
+			console.log(JSON.parse(event.data))
+		)
 
 	_setupDOM: ->
 		@_hud = new HUD(@)
