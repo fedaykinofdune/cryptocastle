@@ -23,6 +23,10 @@ io.sockets.on('connection', (socket) ->
 
     console.log('websocket connection open')
 
+    socket.on('playerMoveRequest', (data) ->
+        socket.emit('playerMoveResponse', success: true)
+    )
+
     socket.on('close', ->
         console.log('websocket connection close')
     )

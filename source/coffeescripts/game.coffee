@@ -351,15 +351,20 @@ class Game
 	_playerMoveAlong: (tile) ->
 		return if tile is @_player.tile
 
-		tile = @_nearestFreeTile(@_player.tile, tile)
-		path = @_pathfinder.findPath(
-			@_player.tile.xGrid
-			@_player.tile.yGrid
-			tile.xGrid
-			tile.yGrid
-			@_grid.clone())	
+		@_socket.emit('playerMoveRequest', x: tile.xGrid, y: tile.yGrid)
+		@_socket.on('playerMoveResponse', (data) =>
+			return unless data.success
 
-		@_player.moveAlong(path)
+			tile = @_nearestFreeTile(@_player.tile, tile)
+			path = @_pathfinder.findPath(
+				@_player.tile.xGrid
+				@_player.tile.yGrid
+				tile.xGrid
+				tile.yGrid
+				@_grid.clone())	
+
+			@_player.moveAlong(path)
+		)
 
 	_handleHotkey: (event) ->
 		switch event.which
