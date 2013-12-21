@@ -1,32 +1,29 @@
-WebSocketServer = require('ws').Server
-express         = require('express')
-http            = require('http')
-_               = require('underscore')
+express = require('express')
+http    = require('http')
+io      = require('socket.io')
 
 app = express()
+server = http.createServer(app)
+io = io.listen(server)
+server.listen(process.env.PORT or 9393)
+
 app.set('view engine', 'jade')
 app.use(express.static(__dirname + '/public'))
 app.get('/', (req, res) ->
     res.render('index')
 )
 
-port = process.env.PORT or 9393
-server = http.createServer(app)
-server.listen(port)
-
-wss = new WebSocketServer(server: server)
-wss.on('connection', (ws) ->
+io.sockets.on('connection', (socket) ->
     playerJSON = JSON.stringify(
-        player:
-            speed: (Math.random() / 4).toFixed(2)
-            color: Math.random() * 0xffffff
+        speed: (Math.random() / 4).toFixed(2)
+        color: Math.random() * 0xffffff
     )
 
-    ws.send(playerJSON)
+    socket.emit('player', playerJSON)
 
     console.log('websocket connection open')
 
-    ws.on('close', ->
+    socket.on('close', ->
         console.log('websocket connection close')
     )
 )

@@ -1,6 +1,7 @@
 THREE  = require('three')
 TWEEN  = require('tween')
 PF     = require('pathfinding')
+io     = require('socket.io-client')
 $      = require('jquery')
 _ 	   = require('underscore')
 
@@ -76,15 +77,14 @@ class Game
 		@_renderer.render(@_scene, @_camera)
 
 	_setupSocket: ->
-		host = location.origin.replace(/^http/, 'ws')
-		@_socket = new WebSocket(host)
-		@_socket.onmessage = ((event) =>
+		@_socket = new io.connect(location.origin)
+		@_socket.on('player', (data) =>
 			# Add a player.
-			@_player = Player.createFromJSON(event.data.player)
+			@_player = Player.createFromJSON(data.player)
 			@_player.room = @_room
 			@_player.placeOn(@_room.tiles[@_xFloor - 1][Math.floor(@_yFloor / 2)])
 			@_scene.add(@_player.object)
-			console.log(JSON.parse(event.data))
+			console.log(JSON.parse(data))
 		)
 
 	_setupDOM: ->
