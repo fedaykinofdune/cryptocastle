@@ -7,12 +7,10 @@
   "description": "Bitcoin game",
   "main": "./source/javascripts/game.js",
   "browser": {
-    "jquery": "./source/javascripts/vendor/jquery.js",
     "three": "./source/javascripts/vendor/three.js",
     "tween": "./source/javascripts/vendor/tween.js"
   },
   "browserify-shim": {
-    "jquery": "$",
     "three": "THREE",
     "tween": "TWEEN"
   },
@@ -33,7 +31,8 @@
     "jade": "~0.35.0",
     "nodemon": "~0.7.10",
     "socket.io": "~0.9.16",
-    "socket.io-client": "~0.9.16"
+    "socket.io-client": "~0.9.16",
+    "jquery": "~2.1.0-beta3"
   },
   "devDependencies": {},
   "scripts": {

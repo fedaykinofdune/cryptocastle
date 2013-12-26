@@ -7,7 +7,7 @@ task default: :build
 
 desc 'Start development server'
 task :serve do
-  exec('$(npm bin)/nodemon server.coffee')
+  exec("env NODE_PATH='./source/javascripts/vendor' $(npm bin)/nodemon server.coffee")
 end
 
 desc 'Compiles on file change'
