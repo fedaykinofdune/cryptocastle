@@ -71,7 +71,7 @@ class Game
 	_setupSocket: ->
 		@_socket = new io.connect(location.origin)
 		@_socket.on('init', (data) =>
-			@_setupWorld(JSON.parse(data).world)
+			@_setupWorld(data.world)
 		)
 
 	_setupDOM: ->
@@ -118,7 +118,7 @@ class Game
 			entity = world[x][y]
 			switch entity.type
 				when 'player'
-					@_player = Player.createFromJSON(entity)
+					@_player = Player.createFromJSON(entity).render()
 					@_player.room = @_room
 					@_player.placeOn(tile)
 					@_scene.add(@_player.object)

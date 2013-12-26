@@ -27,8 +27,8 @@ module.exports = class Prop
 		@tile = null
 		@spriteHeight = null
 
-		@object.name = 'prop'
-		@object
+		# TODO: Combine this with typeName in @toJSON.
+		@object?.name = 'prop'
 
 	toJSON: ->
 		# TODO: @constructor.name is non-standard. Figure something else out.
@@ -62,6 +62,9 @@ module.exports = class Prop
 		copy
 
 	placeOn: (@tile) ->
+		# If we didn't call render we don't have an @object to work with.
+		return unless @object
+
 		@object.position = @tile.notch()
 		@object.visible = true
 

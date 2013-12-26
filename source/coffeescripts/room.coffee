@@ -24,11 +24,17 @@ module.exports = class Room
 		@_pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
 
 		# Build the isometric room. 
+
 		# TODO: Build the room mesh without several plane meshes and a rotation.
 		# Allow passing in an arbitrary 2d array of tile layout and procedurally
 		# generate the vertices for the walls and floors that will bound those
 		# tiles. This will create a custom THREE.Geometry. Now a rotation isn't
 		# necessary.
+
+		# TODO: Move this stuff to a render function so that the back-end isn't
+		# running all this needlessly. But for that we need to make _setupTiles
+		# not depend on geometry. Is it better to just separate Room and
+		# RoomDrawable instead of this render function stuff?
 		material = new THREE.MeshNormalMaterial()
 		material.side = THREE.DoubleSide
 		floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @_xFloor, @_yFloor), material)
@@ -49,7 +55,6 @@ module.exports = class Room
 		@_setupTiles(floor)
 
 	toJSON: -> 
-		world = (_.map(row, (prop) -> prop and prop.toJSON()) for row in @_world)
 		world: @_world
 
 	placeProp: (prop, x, y) ->

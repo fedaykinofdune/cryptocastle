@@ -7,16 +7,19 @@ Tile  = require('./tile')
 Const = require('./constants')
 
 module.exports = class Player extends Prop
-	object: {}
-
+	object: null
+	room: null
+	
 	_speed: 0.15
 	_color: Math.random() * 0xffffff
 	_lastTween: null
 
 	constructor: (@room) ->
-		@object = @_makeSprite('/images/player-south.png') if window?
-
 		super()
+
+	render: ->
+		@object = @_makeSprite('/images/player-south.png')
+		@
 
 	toJSON: ->
 		props =
