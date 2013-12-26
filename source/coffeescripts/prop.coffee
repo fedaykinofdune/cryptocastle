@@ -30,6 +30,15 @@ module.exports = class Prop
 		@object.name = 'prop'
 		@object
 
+	toJSON: ->
+		# TODO: @constructor.name is non-standard. Figure something else out.
+		# Move this toLowerCase stuff to a utility function.
+		typeName = @constructor.name
+		type: typeName.substr(0, 1).toLowerCase() + typeName.substr(1)
+		layout: @layout
+		xPivot: @xPivot
+		yPivot: @yPivot
+
 	# Uses the main @tile and (@xPivot, @yPivot) coordinates to visit each tile
 	# the prop occupies.
 	eachTile: (callback) ->
@@ -54,6 +63,7 @@ module.exports = class Prop
 
 	placeOn: (@tile) ->
 		@object.position = @tile.notch()
+		@object.visible = true
 
 		# TODO: Make this work for non 1x1 tile sprites. somehow adjust the
 		# inital position of the table in relation to (xPivot, yPivot) and
@@ -67,6 +77,10 @@ module.exports = class Prop
 			@object.position.x += (@yGridSize() - 1) * Const.tileSize / 2 - (@yPivot * Const.tileSize)
 			@object.position.y += @object.geometry.height / 2
 			@object.position.z -= (@xGridSize() - 1) * Const.tileSize / 2 - (@xPivot * Const.tileSize)
+
+	remove: ->
+		@tile = null
+		@object.visible = false
 
 	xGridSize: -> @layout[0].length
 
@@ -125,7 +139,7 @@ module.exports = class Prop
 			@spriteHeight = texture.image.height
 			$(@).trigger('spriteLoaded')
 		)
-		material = new THREE.SpriteMaterial(map: texture, color: Math.random() * 0xffffff)
+		material = new THREE.SpriteMaterial(map: texture, color: @_color)
 		new THREE.Sprite(material)
 
 	_notchPosition: (tile) ->

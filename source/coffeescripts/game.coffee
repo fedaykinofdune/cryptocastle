@@ -1,9 +1,8 @@
 THREE  = require('three')
 TWEEN  = require('tween')
-PF     = require('pathfinding')
 io     = require('socket.io-client')
 $      = require('jquery')
-_ 	   = require('underscore')
+_      = require('underscore')
 
 HUD    = require('./hud')
 Props  = require('./props')
@@ -14,8 +13,6 @@ Player = require('./player')
 class Game
 	_mode: Const.gameModes.normal
 	_hud: null
-	_grid: null
-	_pathfinder: null
 	_projector: null
 	_renderer: null
 	_scene: null
@@ -26,9 +23,6 @@ class Game
 	_mousePos: null
 	_activeTile: null
 	_mesh2objectHash: {}
-	_xFloor: 10
-	_yFloor: 10
-	_yWall: 5
 	_liftPoint: null
 	_liftedOriginalPosition: null
 	_liftedProp: null
@@ -36,15 +30,13 @@ class Game
 	_mesh: null
 
 	constructor: ->
-		@_grid = new PF.Grid(@_xFloor, @_yFloor)
-		@_pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
 		@_projector = new THREE.Projector()
 		@_renderer = new THREE.WebGLRenderer()
 		@_renderer.setSize(window.innerWidth, window.innerHeight)
 
+		@_setupScene()
 		@_setupSocket()
 		@_setupDOM()
-		@_setupScene()
 		@_setupEvents()
 
 	setMode: (@_mode) ->
@@ -78,13 +70,8 @@ class Game
 
 	_setupSocket: ->
 		@_socket = new io.connect(location.origin)
-		@_socket.on('player', (data) =>
-			# Add a player.
-			@_player = Player.createFromJSON(data.player)
-			@_player.room = @_room
-			@_player.placeOn(@_room.tiles[@_xFloor - 1][Math.floor(@_yFloor / 2)])
-			@_scene.add(@_player.object)
-			console.log(JSON.parse(data))
+		@_socket.on('init', (data) =>
+			@_setupWorld(JSON.parse(data).world)
 		)
 
 	_setupDOM: ->
@@ -111,20 +98,38 @@ class Game
 		@_mesh.position.y = 100
 		@_scene.add(@_mesh)
 
-		@_room = new Room(@_xFloor, @_yWall, @_yFloor)
+	_setupWorld: (world) ->
+		xFloor = world.length
+		yFloor = world[0].length
+		yWall = 5
+
+		@_room = new Room(xFloor, yWall, yFloor, world)
 		@_scene.add(@_room.object)
 		@_scene.add(new THREE.AxisHelper(200))
 		@_mapClickableMeshes(@_room.tiles)
 
 		# Add a light.
-		roomCenter = @_room.tiles[Math.floor(@_xFloor / 2)][Math.floor(@_yFloor / 2)].notch()
+		roomCenter = @_room.tiles[Math.floor(xFloor / 2)][Math.floor(yFloor / 2)].notch()
 		light = new THREE.PointLight()
-		light.position.set(roomCenter.x, @_yWall * Const.tileSize, roomCenter.z);
+		light.position.set(roomCenter.x, yWall * Const.tileSize, roomCenter.z);
 		@_scene.add(light)
 
-		# Add a dice table.
-		table = new Props.DiceTable()
-		@_placeProp(table, @_room.tiles[Math.floor(@_xFloor / 2) - 1][1])
+		@_room.eachTile((tile, x, y) =>
+			entity = world[x][y]
+			switch entity.type
+				when 'player'
+					@_player = Player.createFromJSON(entity)
+					@_player.room = @_room
+					@_player.placeOn(tile)
+					@_scene.add(@_player.object)
+
+				when 'diceTable'
+					table = Props.DiceTable.createFromJSON(entity)
+					@_placeProp(table, tile)
+
+				when 'chair'
+					null
+		)
 
 	_setupEvents: ->
 		$(@_renderer.domElement).click(@_handleGameClick.bind(@))
@@ -133,47 +138,25 @@ class Game
 		$(document).keydown(@_handleHotkey.bind(@))
 		$(window).resize(@_updateGameSize.bind(@))
 
-	# Find the nearest tile to targetTile from sourceTile that is not occupied.
-	# TODO: This would most logically belong in Room, but Room does not have
-	# access to Game._grid. Restructure the code somehow so stuff doesn't keep
-	# getting shoved into Game just because it is the sole owner of Grid.
-	_nearestFreeTile: (sourceTile, targetTile) ->
-		nearestTile = null 
-		nearestDistance = Infinity
-
-		for radius in [0...5]
-			@_room.eachTileRing(targetTile, radius, (tile) =>
-				return unless @_grid.isWalkableAt(tile.xGrid, tile.yGrid)
-				distance = sourceTile.object.position.distanceTo(tile.object.position)
-				if distance < nearestDistance
-					nearestDistance = distance
-					nearestTile = tile
-			)
-
-			return nearestTile if nearestTile
-
-		sourceTile
-
 	_removeProp: (prop) ->
 		@_unmapClickableMeshes(prop)
-		@_gridSetPropWalkable(prop)
+		@_room.removeProp(prop)
 		@_scene.remove(prop.object)
 
 	_placeProp: (prop, tile) ->
 		@_mapClickableMeshes(prop)
-		prop.placeOn(tile)
-		@_gridSetPropWalkable(prop, false)
+		@_room.placeProp(prop, tile)
 		@_scene.add(prop.object)
 
 	_rotateRightProp: (prop) ->
-		@_gridSetPropWalkable(prop)
-		prop._rotateRightProp()	
-		@_gridSetPropWalkable(prop, false)
+		@_room.unsetCollisionFor(prop)
+		prop.rotateRight()	
+		@_room.setCollisionFor(prop)
 
 	_rotateLeftProp: (prop) ->
-		@_gridSetPropWalkable(prop)
-		prop._rotateLeftProp()
-		@_gridSetPropWalkable(prop, false)
+		@_room.unsetCollisionFor(prop)
+		prop.rotateLeft()
+		@_room.setCollisionFor(prop)
 
 	_forgetLiftedProp: -> 
 		@_liftPoint = null
@@ -207,14 +190,9 @@ class Game
 			delete @_mesh2objectHash[entity.object.id]
 		)
 
+	# This mapping is useful when Game does a raycast and picks out some mesh in
+	# the scene. Now it can find the corresponding object in O(1) time.
 	_mesh2object: (mesh) -> @_mesh2objectHash[mesh.id]
-
-	# Considering a prop and it's pivot tile, place the prop on the AI grid.
-	# TODO: Push this into an AI module.
-	_gridSetPropWalkable: (prop, walkable = true) ->
-		prop.eachTile((xIndex, yIndex) =>
-			@_grid.setWalkableAt(xIndex, yIndex, walkable)
-		)
 
 	# TODO: There's a bug where the active tile can be just outside the prop
 	# while still selecting the prop for dragging. It's a minor bug but it can
@@ -286,22 +264,6 @@ class Game
 		# TODO: Get the intersected mesh on each mousemove event. Use it here to
 		# set the CSS grab icon when appropriate.
 
-	# Game uses @_xFloor, @_yFloor along with tile grid info and prop dimensions
-	# to determine if the prop fits on the tile. This is useful when moving
-	# around a potential candidate for placement (@_liftedPropGhost).
-	_propGhostFitsOn: (tile) ->
-		prop = @_liftedPropGhost
-		return false unless prop and tile
-
-		prop.eachTile((xIndex, yIndex) =>
-			return false unless @_grid.isWalkableAt(xIndex, yIndex)
-		)
-		return false if tile.xGrid + prop.xGridSize() - prop.xPivot > @_xFloor
-		return false if tile.xGrid - prop.xPivot < 0
-		return false if tile.yGrid + prop.yGridSize() - prop.yPivot > @_yFloor	
-		return false if tile.yGrid - prop.yPivot < 0
-		true
-
 	# TODO: This function is becoming a tangled mess. If there are more game
 	# states we could benefit from a finite state machine.
 	_handleGameClick: (event) ->
@@ -333,7 +295,7 @@ class Game
 					@_removeProp(@_liftedProp)
 
 					tile = @_mesh2object(tileMesh)
-					if @_propGhostFitsOn(tile)
+					if @_room.propFitsOn(@_liftedPropGhost, tile)
 						@_liftedPropGhost.object.material.opacity = 1
 						@_liftedPropGhost.object.material.transparent = false
 						@_placeProp(@_liftedPropGhost, tile)
@@ -347,21 +309,22 @@ class Game
 		if Const.gameModes.edit and @_liftedPropGhost
 			@_liftedPropGhost.rotateRight()
 
-	# TODO: Push this into an AI module.
 	_playerMoveAlong: (tile) ->
 		return if tile is @_player.tile
 
-		@_socket.emit('playerMoveRequest', x: tile.xGrid, y: tile.yGrid)
-		@_socket.on('playerMoveResponse', (data) =>
+		@_socket.emit('entityMoveRequest', id: @_player.id, x: tile.xGrid, y: tile.yGrid)
+		@_socket.on('entityMoveResponse', (data) =>
 			return unless data.success
 
-			tile = @_nearestFreeTile(@_player.tile, tile)
-			path = @_pathfinder.findPath(
+			# TODO: Temporary reference to @room._grid. This will get
+			# restructured.
+			tile = @_room.nearestFreeTile(@_player.tile, tile)
+			path = @_room._pathfinder.findPath(
 				@_player.tile.xGrid
 				@_player.tile.yGrid
 				tile.xGrid
 				tile.yGrid
-				@_grid.clone())	
+				@_room._grid.clone())	
 
 			@_player.moveAlong(path)
 		)

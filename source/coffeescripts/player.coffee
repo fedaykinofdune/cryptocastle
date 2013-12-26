@@ -1,29 +1,32 @@
 THREE = require('three')
 TWEEN = require('tween')
+$     = require('jquery')
 
 Prop  = require('./prop')
 Tile  = require('./tile')
 Const = require('./constants')
 
 module.exports = class Player extends Prop
+	object: {}
+
+	_speed: 0.15
+	_color: Math.random() * 0xffffff
+	_lastTween: null
+
 	constructor: (@room) ->
-		@speed = 0.15
-		@color = Math.random() * 0xffffff
-		@lastTween = null
-		@targetTile = null
-		@object = @_makeSprite('/images/player-south.png')
+		@object = @_makeSprite('/images/player-south.png') if window?
 
 		super()
 
 	toJSON: ->
-		speed: @speed
-		color: @color
+		props =
+			speed: @_speed
+			color: @_color
+
+		$.extend(super(), props)
 
 	moveAlong: (path) ->
 		return unless path.length > 1
-
-		lastCoordPair = path[path.length - 1]
-		@targetTile = @room.tiles[lastCoordPair[0]][lastCoordPair[1]]
 
 		tweens = []
 
@@ -37,14 +40,14 @@ module.exports = class Player extends Prop
 			tweens[index - 1]?.chain(tween)
 			tweens.push(tween)
 
-		@lastTween?.stop()
-		@lastTween = tweens[0]
-		@lastTween.start()
+		@_lastTween?.stop()
+		@_lastTween = tweens[0]
+		@_lastTween.start()
 
 	_animateTo: (startTile, nextTile, firstTween = false) ->
 		startPosition = if firstTween then @object.position.clone() else @_notchPosition(startTile)
 		nextPosition = @_notchPosition(nextTile)
-		time = startPosition.distanceTo(nextPosition) / @speed
+		time = startPosition.distanceTo(nextPosition) / @_speed
 
 		new TWEEN.Tween(startPosition)
 			.to(nextPosition, time)

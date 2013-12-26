@@ -41,9 +41,9 @@ task build: :compile do
 
   case ENV['ENV']
   when 'production'
-    `$(npm bin)/browserify . --fast -t brfs | $(npm bin)/uglifyjs -o #{outputFile}`
+    `$(npm bin)/browserify . --noparse=jquery -t brfs | $(npm bin)/uglifyjs -o #{outputFile}`
   else
-    `$(npm bin)/browserify . --fast -t brfs -o #{outputFile}`
+    `$(npm bin)/browserify . --noparse=jquery --fast -t brfs -o #{outputFile}`
   end
 
   if $?.to_i == 0

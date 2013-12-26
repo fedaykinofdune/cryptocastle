@@ -1,14 +1,27 @@
 THREE = require('three')
+PF    = require('pathfinding')
 _     = require('underscore')
 
 Tile  = require('./tile')
 Const = require('./constants')
 
 module.exports = class Room
-	constructor: (@xTiles, @yTiles, @zTiles) ->
-		sizeX = Const.tileSize * @xTiles
-		sizeY = Const.tileSize * @yTiles
-		sizeZ = Const.tileSize * @zTiles
+	_xFloor: null
+	_yFloor: null
+	_yWall: null
+	_grid: null
+	_pathfinder: null
+	_world: null
+
+	constructor: (@_xFloor, @_yWall, @_yFloor, @_world) ->
+		sizeX = Const.tileSize * @_xFloor
+		sizeY = Const.tileSize * @_yWall
+		sizeZ = Const.tileSize * @_yFloor
+
+		# TODO: Combine @tiles and @_world.
+		@_world ?= (0 for x in [0...@_xFloor] for y in [0...@_yFloor])
+		@_grid = new PF.Grid(@_xFloor, @_yFloor, @_world)
+		@_pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
 
 		# Build the isometric room. 
 		# TODO: Build the room mesh without several plane meshes and a rotation.
@@ -18,7 +31,7 @@ module.exports = class Room
 		# necessary.
 		material = new THREE.MeshNormalMaterial()
 		material.side = THREE.DoubleSide
-		floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @xTiles, @zTiles), material)
+		floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @_xFloor, @_yFloor), material)
 		leftWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeY), material)
 		rightWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeY, sizeZ), material)
 
@@ -35,13 +48,78 @@ module.exports = class Room
 
 		@_setupTiles(floor)
 
-		@object
+	toJSON: -> 
+		world = (_.map(row, (prop) -> prop and prop.toJSON()) for row in @_world)
+		world: @_world
+
+	placeProp: (prop, x, y) ->
+		tile = if x instanceof Tile then x else @tiles[x][y]
+		prop.placeOn(tile)
+		@setCollisionFor(prop)
+
+	removeProp: (prop) ->
+		@unsetCollisionFor(prop)
+		prop.remove()
+
+	# Find the nearest tile to targetTile from sourceTile that is not occupied.
+	nearestFreeTile: (sourceTile, targetTile) ->
+		nearestTile = null 
+		nearestDistance = Infinity
+
+		for radius in [0...5]
+			@eachTileRing(targetTile, radius, (tile) =>
+				return unless @_grid.isWalkableAt(tile.xGrid, tile.yGrid)
+				distance = sourceTile.object.position.distanceTo(tile.object.position)
+				if distance < nearestDistance
+					nearestDistance = distance
+					nearestTile = tile
+			)
+
+			return nearestTile if nearestTile
+
+		sourceTile
+
+	# Room uses @_xFloor, @_yFloor along with tile grid info and prop dimensions
+	# to determine if the prop fits on the tile. This is useful when moving
+	# around a potential candidate for placement (@_liftedPropGhost).
+	propFitsOn: (prop, tile) ->
+		return false unless prop and tile
+
+		prop.eachTile((xIndex, yIndex) =>
+			return false unless @_grid.isWalkableAt(xIndex, yIndex)
+		)
+		return false if tile.xGrid + prop.xGridSize() - prop.xPivot > @_xFloor
+		return false if tile.xGrid - prop.xPivot < 0
+		return false if tile.yGrid + prop.yGridSize() - prop.yPivot > @_yFloor	
+		return false if tile.yGrid - prop.yPivot < 0
+		true
+
+	# Considering a prop and it's pivot tile, place the prop on the AI grid.
+	unsetCollisionFor: (prop) ->
+		@_world[prop.tile.xGrid][prop.tile.yGrid] = 0
+
+		prop.eachTile((xIndex, yIndex) =>
+			@_grid.setWalkableAt(xIndex, yIndex, true)
+		)
+
+	setCollisionFor: (prop) ->
+		@_world[prop.tile.xGrid][prop.tile.yGrid] = prop
+
+		prop.eachTile((xIndex, yIndex) =>
+			@_grid.setWalkableAt(xIndex, yIndex, false)
+		)
+
+	eachTile: (callback) ->
+		for x in [0...@_xFloor]
+			for y in [0...@_yFloor]		
+				value = callback(@tiles[x][y], x, y)
+				return @tiles[x][y] if value is false
 
 	# TODO: Replace this with a hash lookup rather than linear iteration.
 	mesh2tileObj: (mesh) ->
-		for y in [0...@zTiles]		
-			for x in [0...@xTiles]
-				return @tiles[x][y] if @tiles[x][y].object is mesh
+		@eachTile((tile, x, y) =>
+			false if @tiles[x][y].object is mesh
+		)
 
 	# Iterate an outer ring around a given tile. Useful for Room.nearestFreeTile
 	# function.
@@ -79,7 +157,7 @@ module.exports = class Room
 			centroid.add(vertex) for vertex in vertices
 			centroid.divideScalar(vertices.length)
 
-			xIndex = Math.floor(index / @xTiles / 2)
+			xIndex = Math.floor(index / 2 / @_xFloor)
 			@tiles[xIndex] ?= []
 			yIndex = @tiles[xIndex].length
 
