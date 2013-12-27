@@ -26,8 +26,8 @@ module.exports = class Player extends Prop
 	toJSON: ->
 		json =
 			currentPlayer: @currentPlayer
-			speed: @_speed
-			color: @_color
+			_speed: @_speed
+			_color: @_color
 
 		$.extend(super(), json)
 

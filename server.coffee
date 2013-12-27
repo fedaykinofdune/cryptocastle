@@ -20,7 +20,7 @@ app.get('/', (req, res) ->
 # The back-end counterpart to Game. Has a similar API but handles broadcasting
 # socket information to connections.
 class GameServer
-    _connections: {}
+    _players: {}
     _props: {}
     _propID: 0
     _room: null
@@ -35,21 +35,19 @@ class GameServer
 
         io.sockets.on('connection', @_handleSocketConnection.bind(@))
 
-    _broadcast: ->
-        for id, connection of @_connections
-            connection.socket.emit(arguments...)
-
     _removeProp: (prop) ->
         @_room.removeProp(prop)
-        @_broadcast('removeProp', id: prop.id)
         delete @_props[prop.id]
+        io.sockets.emit('removeProp', id: prop.id)
 
-    _placeProp: (prop, x, y) ->
-        prop.id = @_propID++
+    _placeProp: (prop, x, y, options = {}) ->
+        prop.id = @_propID
+        @_propID += 1
         @_props[prop.id] = prop
         @_room.placeProp(prop, x, y)
-        @_broadcast('createProp', x: x, y: y, data: prop.toJSON())
-        @_propID += 1
+
+        unless options.silent
+            io.sockets.emit('createProp', x: x, y: y, data: prop.toJSON())   
 
     _handleSocketConnection: (socket) ->
         socket.on('movePropRequest', (data) =>
@@ -60,11 +58,11 @@ class GameServer
 
             @_room.removeProp(prop)
             @_room.placeProp(prop, tile)
-            @_broadcast('moveProp', data)
+            io.sockets.emit('moveProp', data)
         )
         socket.on('disconnect', => 
-            @_removeProp(@_connections[socket.id].player)
-            delete @_connections[socket.id]
+            @_removeProp(@_players[socket.id])
+            delete @_players[socket.id]
         )
 
         # Send out the initial game configuration.
@@ -73,13 +71,14 @@ class GameServer
         # Create the new player and broadcast him to everyone but the current
         # connection.
         player = new Player(@_room)
-        @_placeProp(player, 9, 5)
+        @_placeProp(player, 9, 5, silent: true)
+        message = x: player.tile.xGrid, y: player.tile.yGrid, data: player.toJSON()
+        socket.broadcast.emit('createProp', message)
 
         # Send the new player to the current connection as the current player.
-        playerJSON = player.toJSON()
-        playerJSON.currentPlayer = true
-        socket.emit('createProp', x: player.tile.xGrid, y: player.tile.yGrid, data: playerJSON)
+        message.data.currentPlayer = true
+        socket.emit('createProp', message)
 
-        @_connections[socket.id] = socket: socket, player: player
+        @_players[socket.id] = player
 
 gameServer = new GameServer()

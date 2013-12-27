@@ -55,7 +55,7 @@ module.exports = class Room
 		@_setupTiles(floor)
 
 	toJSON: -> 
-		world: @_world
+		_world: @_world
 
 	movePlayer: (player, x, y) ->
 		tile = @nearestFreeTile(player.tile, @tiles[x][y])

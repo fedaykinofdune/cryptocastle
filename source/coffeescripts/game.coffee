@@ -72,7 +72,7 @@ class Game
 	_setupSocket: ->
 		@_socket = new io.connect(location.origin)
 		@_socket.on('init', (response) =>
-			@_setupWorld(response.world)
+			@_setupWorld(response._world)
 		)
 		@_socket.on('createProp', (response) =>
 			@_placePropFromJSON(response.data, @_room.tiles[response.x][response.y])
