@@ -23,6 +23,7 @@ class Game
 	_mousePos: null
 	_activeTile: null
 	_mesh2objectHash: {}
+	_props: {}
 	_liftPoint: null
 	_liftedOriginalPosition: null
 	_liftedProp: null
@@ -70,8 +71,21 @@ class Game
 
 	_setupSocket: ->
 		@_socket = new io.connect(location.origin)
-		@_socket.on('init', (data) =>
-			@_setupWorld(data.world)
+		@_socket.on('init', (response) =>
+			@_setupWorld(response.world)
+		)
+		@_socket.on('createProp', (response) =>
+			@_placePropFromJSON(response.data, @_room.tiles[response.x][response.y])
+		)
+		@_socket.on('removeProp', (response) =>
+			@_room.removeProp(@_props[response.id])
+		)
+		@_socket.on('moveProp', (response) =>
+			prop = @_props[response.id]
+			if prop.type is 'player'
+				@_room.movePlayer(prop, response.x, response.y)
+			else
+				@_room.placeProp(prop, response.x, response.y)
 		)
 
 	_setupDOM: ->
@@ -115,20 +129,7 @@ class Game
 		@_scene.add(light)
 
 		@_room.eachTile((tile, x, y) =>
-			entity = world[x][y]
-			switch entity.type
-				when 'player'
-					@_player = Player.createFromJSON(entity).render()
-					@_player.room = @_room
-					@_player.placeOn(tile)
-					@_scene.add(@_player.object)
-
-				when 'diceTable'
-					table = Props.DiceTable.createFromJSON(entity)
-					@_placeProp(table, tile)
-
-				when 'chair'
-					null
+			@_placePropFromJSON(world[x][y], tile)
 		)
 
 	_setupEvents: ->
@@ -142,6 +143,27 @@ class Game
 		@_unmapClickableMeshes(prop)
 		@_room.removeProp(prop)
 		@_scene.remove(prop.object)
+
+	# TODO: Make all these placeProp-type contracts use x, y rather than tile.
+	# Tiles are sort of internal things to the Room.
+	_placePropFromJSON: (json, tile) ->
+		return unless json
+
+		prop = null
+		switch json.type
+			when 'player'
+				prop = Player.createFromJSON(json).render()
+				prop.room = @_room
+				@_player = prop if prop.currentPlayer
+
+			when 'diceTable'
+				prop = Props.DiceTable.createFromJSON(json)
+
+			when 'chair'
+				return
+
+		@_props[prop.id] = prop
+		@_placeProp(prop, tile)
 
 	_placeProp: (prop, tile) ->
 		@_mapClickableMeshes(prop)
@@ -170,24 +192,24 @@ class Game
 		@_liftedProp = original
 		@_liftedPropGhost = ghost
 
-	# Entities can be a single entity, an array or nested array of entities.
+	# Entities can be a single prop, an array or nested array of entities.
 	# Useful for being able to pass in a single Prop or a 2D array of Tiles.
-	_eachEntity: (entities, callback) ->
+	_eachProp: (entities, callback) ->
 		entities = [entities] unless entities.length
 
 		# We use _.flatten for convenience since entities could be passed in as
 		# a 2D array of tiles.
-		callback(entity) for entity in _.flatten(entities)
+		callback(prop) for prop in _.flatten(entities)
 
 	# Used to map, say, a prop mesh to its respective Prop object.
 	_mapClickableMeshes: (entities) ->
-		@_eachEntity(entities, (entity) =>
-			@_mesh2objectHash[entity.object.id] = entity
+		@_eachProp(entities, (prop) =>
+			@_mesh2objectHash[prop.object.id] = prop
 		)
 
 	_unmapClickableMeshes: (entities) ->
-		@_eachEntity(entities, (entity) =>
-			delete @_mesh2objectHash[entity.object.id]
+		@_eachProp(entities, (prop) =>
+			delete @_mesh2objectHash[prop.object.id]
 		)
 
 	# This mapping is useful when Game does a raycast and picks out some mesh in
@@ -276,7 +298,7 @@ class Game
 
 		switch @_mode
 			when Const.gameModes.normal
-				@_playerMoveAlong(@_mesh2object(tileMesh)) if tileMesh
+				@_sendMovePlayerRequest(@_mesh2object(tileMesh)) if tileMesh
 
 			when Const.gameModes.edit
 				# If we clicked on a mesh and we're not carrying a prop.
@@ -309,25 +331,9 @@ class Game
 		if Const.gameModes.edit and @_liftedPropGhost
 			@_liftedPropGhost.rotateRight()
 
-	_playerMoveAlong: (tile) ->
+	_sendMovePlayerRequest: (tile) ->
 		return if tile is @_player.tile
-
-		@_socket.emit('entityMoveRequest', id: @_player.id, x: tile.xGrid, y: tile.yGrid)
-		@_socket.on('entityMoveResponse', (data) =>
-			return unless data.success
-
-			# TODO: Temporary reference to @room._grid. This will get
-			# restructured.
-			tile = @_room.nearestFreeTile(@_player.tile, tile)
-			path = @_room._pathfinder.findPath(
-				@_player.tile.xGrid
-				@_player.tile.yGrid
-				tile.xGrid
-				tile.yGrid
-				@_room._grid.clone())	
-
-			@_player.moveAlong(path)
-		)
+		@_socket.emit('movePropRequest', id: @_player.id, x: tile.xGrid, y: tile.yGrid)
 
 	_handleHotkey: (event) ->
 		switch event.which

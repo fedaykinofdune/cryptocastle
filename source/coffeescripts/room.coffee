@@ -57,6 +57,17 @@ module.exports = class Room
 	toJSON: -> 
 		world: @_world
 
+	movePlayer: (player, x, y) ->
+		tile = @nearestFreeTile(player.tile, @tiles[x][y])
+		path = @_pathfinder.findPath(
+			player.tile.xGrid
+			player.tile.yGrid
+			tile.xGrid
+			tile.yGrid
+			@_grid.clone())	
+
+		player.moveAlong(path)
+
 	placeProp: (prop, x, y) ->
 		tile = if x instanceof Tile then x else @tiles[x][y]
 		prop.placeOn(tile)
@@ -101,14 +112,14 @@ module.exports = class Room
 
 	# Considering a prop and it's pivot tile, place the prop on the AI grid.
 	unsetCollisionFor: (prop) ->
-		@_world[prop.tile.xGrid][prop.tile.yGrid] = 0
+		@_world[prop.tile.xGrid][prop.tile.yGrid] = 0 if prop.tile
 
 		prop.eachTile((xIndex, yIndex) =>
 			@_grid.setWalkableAt(xIndex, yIndex, true)
 		)
 
 	setCollisionFor: (prop) ->
-		@_world[prop.tile.xGrid][prop.tile.yGrid] = prop
+		@_world[prop.tile.xGrid][prop.tile.yGrid] = prop if prop.tile
 
 		prop.eachTile((xIndex, yIndex) =>
 			@_grid.setWalkableAt(xIndex, yIndex, false)

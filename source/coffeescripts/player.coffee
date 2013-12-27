@@ -9,12 +9,14 @@ Const = require('./constants')
 module.exports = class Player extends Prop
 	object: null
 	room: null
-	
+	currentPlayer: false
+
 	_speed: 0.15
-	_color: Math.random() * 0xffffff
+	_color: null
 	_lastTween: null
 
 	constructor: (@room) ->
+		@_color ?= Math.random() * 0xffffff
 		super()
 
 	render: ->
@@ -22,11 +24,12 @@ module.exports = class Player extends Prop
 		@
 
 	toJSON: ->
-		props =
+		json =
+			currentPlayer: @currentPlayer
 			speed: @_speed
 			color: @_color
 
-		$.extend(super(), props)
+		$.extend(super(), json)
 
 	moveAlong: (path) ->
 		return unless path.length > 1

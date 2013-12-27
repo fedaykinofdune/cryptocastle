@@ -13,6 +13,11 @@ _     = require('underscore')
 Const = require('./constants')
 
 module.exports = class Prop
+	id: null
+	tile: null
+
+	_spriteHeight: null
+
 	@createFromJSON: (json) ->
 		prop = new @()
 		$.extend(prop, json)
@@ -24,8 +29,6 @@ module.exports = class Prop
 		@layout ?= [[]]
 		@xPivot ?= 0
 		@yPivot ?= 0
-		@tile = null
-		@spriteHeight = null
 
 		# TODO: Combine this with typeName in @toJSON.
 		@object?.name = 'prop'
@@ -34,6 +37,7 @@ module.exports = class Prop
 		# TODO: @constructor.name is non-standard. Figure something else out.
 		# Move this toLowerCase stuff to a utility function.
 		typeName = @constructor.name
+		id: @id
 		type: typeName.substr(0, 1).toLowerCase() + typeName.substr(1)
 		layout: @layout
 		xPivot: @xPivot
@@ -83,6 +87,10 @@ module.exports = class Prop
 
 	remove: ->
 		@tile = null
+		
+		# If we didn't call render we don't have an @object to work with.
+		return unless @object
+
 		@object.visible = false
 
 	xGridSize: -> @layout[0].length
@@ -139,7 +147,7 @@ module.exports = class Prop
 	_makeSprite: (spriteTexturePath) ->
 		texture = new THREE.ImageUtils.loadTexture(spriteTexturePath, null, (texture) =>
 			@object.scale.set(texture.image.width * 2, texture.image.height * 2, 1)
-			@spriteHeight = texture.image.height
+			@_spriteHeight = texture.image.height
 			$(@).trigger('spriteLoaded')
 		)
 		material = new THREE.SpriteMaterial(map: texture, color: @_color)
@@ -147,5 +155,5 @@ module.exports = class Prop
 
 	_notchPosition: (tile) ->
 		notch = tile.notch()
-		notch.y += (@object.geometry?.height or @spriteHeight) / 2
+		notch.y += (@object.geometry?.height or @_spriteHeight) / 2
 		notch
