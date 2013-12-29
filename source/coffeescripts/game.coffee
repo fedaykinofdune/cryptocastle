@@ -28,7 +28,6 @@ class Game
 	_liftedOriginalPosition: null
 	_liftedProp: null
 	_liftedPropGhost: null
-	_mesh: null
 
 	constructor: ->
 		@_projector = new THREE.Projector()
@@ -62,8 +61,6 @@ class Game
 	run: ->
 		requestAnimationFrame(@run.bind(@))
 		TWEEN.update()
-		@_mesh.rotation.x += 0.005
-		@_mesh.rotation.y += 0.01
 
 		@_handleTileMouseover()
 		@_handleLiftedPropHover()
@@ -104,13 +101,6 @@ class Game
 		@_camera.lookAt(Const.origin)
 		@_camera.position.x /= 2
 		@_camera.position.z /= 2
-
-		# Add a test mesh.
-		geometry = new THREE.CubeGeometry(50, 50, 50)
-		material = new THREE.MeshBasicMaterial()
-		@_mesh = new THREE.Mesh(geometry, material)
-		@_mesh.position.y = 100
-		@_scene.add(@_mesh)
 
 	_setupWorld: (world) ->
 		xFloor = world.length
