@@ -5,8 +5,8 @@
 # to be bought or the game mode to change. 
 
 # So lets pretend we have a 'friend' keyword and restrict HUD to using the
-# following Game functions, and absolutely nothing else from Game:
-# * Game.setMode
+# following Game attibutes and absolutely nothing else from Game:
+# * Game.mode
 # * Game.liftProp
 
 fs    = require('fs')
@@ -34,11 +34,11 @@ module.exports = class HUD
 		radios = @_gameModesFieldset.find('input')
 		radios.prop('checked', false)
 		radios.eq(mode).prop('checked', true)
-		@_game.setMode(mode)
+		@_game.mode = mode
 
 	_handleGameModeChange: (event) ->
 		mode = Const.gameModes[event.target.value]
-		@_game.setMode(mode) if mode
+		@_game.mode = mode if mode?
 
 	_handleShopBuy: (event) ->
 		event.preventDefault()

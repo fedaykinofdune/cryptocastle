@@ -7,6 +7,7 @@ Tile  = require('./tile')
 Const = require('./constants')
 
 module.exports = class Player extends Prop
+	layout: [[1]]
 	object: null
 	room: null
 	currentPlayer: false
@@ -34,12 +35,16 @@ module.exports = class Player extends Prop
 	moveAlong: (path) ->
 		return unless path.length > 1
 
-		tweens = []
+		@tile = @_coordPair2Tile(path[path.length - 1])
+		@_animateAlong(path) if @object
 
+	_coordPair2Tile: (pair) -> @room.tiles[pair[0]][pair[1]]
+
+	_animateAlong: (path) ->
+		tweens = []
 		for coordPair, index in path when index < path.length - 1
-			currentTile = @room.tiles[coordPair[0]][coordPair[1]]
-			nextCoordPair = path[index + 1]
-			nextTile = @room.tiles[nextCoordPair[0]][nextCoordPair[1]]
+			currentTile = @_coordPair2Tile(coordPair)
+			nextTile = @_coordPair2Tile(path[index + 1])
 
 			firstTween = index is 0
 			tween = @_animateTo(currentTile, nextTile, firstTween)
@@ -58,4 +63,3 @@ module.exports = class Player extends Prop
 		new TWEEN.Tween(startPosition)
 			.to(nextPosition, time)
 			.onUpdate(=> @object.position.copy(startPosition))
-			.onComplete(=> @tile = nextTile)

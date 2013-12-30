@@ -54,11 +54,16 @@ class GameServer
             prop = @_props[data.id]
             tile = @_room.tiles[data.x][data.y]
             return unless prop and tile
-            return unless @_room.propFitsOn(prop, tile)
 
-            @_room.removeProp(prop)
-            @_room.placeProp(prop, tile)
-            io.sockets.emit('moveProp', data)
+            switch prop.type
+            	when 'player'
+            		@_room.movePlayer(prop, data.x, data.y)
+            	when 'prop'
+		            return unless @_room.propFitsOn(prop, tile)
+		            @_room.removeProp(prop)
+		            @_room.placeProp(prop, tile)
+
+            io.sockets.emit('moveProp', id: data.id, x: prop.tile.xGrid, y: prop.tile.yGrid)
         )
         socket.on('disconnect', => 
             @_removeProp(@_players[socket.id])

@@ -15,6 +15,7 @@ Const = require('./constants')
 module.exports = class Prop
 	id: null
 	tile: null
+	type: null
 
 	_spriteHeight: null
 
@@ -30,15 +31,17 @@ module.exports = class Prop
 		@xPivot ?= 0
 		@yPivot ?= 0
 
-		# TODO: Combine this with typeName in @toJSON.
-		@object?.name = 'prop'
-
-	toJSON: ->
 		# TODO: @constructor.name is non-standard. Figure something else out.
 		# Move this toLowerCase stuff to a utility function.
 		typeName = @constructor.name
+		@type = typeName.substr(0, 1).toLowerCase() + typeName.substr(1)
+
+		# TODO: Combine this with @type.
+		@object?.name = 'prop'
+
+	toJSON: ->
 		id: @id
-		type: typeName.substr(0, 1).toLowerCase() + typeName.substr(1)
+		type: @type
 		layout: @layout
 		xPivot: @xPivot
 		yPivot: @yPivot
@@ -87,7 +90,7 @@ module.exports = class Prop
 
 	remove: ->
 		@tile = null
-		
+
 		# If we didn't call render we don't have an @object to work with.
 		return unless @object
 

@@ -6,6 +6,8 @@ Tile  = require('./tile')
 Const = require('./constants')
 
 module.exports = class Room
+	tiles: []
+
 	_xFloor: null
 	_yFloor: null
 	_yWall: null
@@ -18,7 +20,11 @@ module.exports = class Room
 		sizeY = Const.tileSize * @_yWall
 		sizeZ = Const.tileSize * @_yFloor
 
-		# TODO: Combine @tiles and @_world.
+		# TODO: Combine @tiles and @_world. Right now @tiles is dictated by
+		# geometry which is dictated by @_xFloor, @_yWall, @_yFloor. It should
+		# be that @_world is served up by the server, which determines @_xFloor,
+		# @_yFloor which determines geometry and populates @tiles from @_world
+		# data internally.
 		@_world ?= (0 for x in [0...@_xFloor] for y in [0...@_yFloor])
 		@_grid = new PF.Grid(@_xFloor, @_yFloor, @_world)
 		@_pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
@@ -58,6 +64,7 @@ module.exports = class Room
 		_world: @_world
 
 	movePlayer: (player, x, y) ->
+		@unsetCollisionFor(player)
 		tile = @nearestFreeTile(player.tile, @tiles[x][y])
 		path = @_pathfinder.findPath(
 			player.tile.xGrid
@@ -67,6 +74,7 @@ module.exports = class Room
 			@_grid.clone())	
 
 		player.moveAlong(path)
+		@setCollisionFor(player)
 
 	placeProp: (prop, x, y) ->
 		tile = if x instanceof Tile then x else @tiles[x][y]
@@ -156,7 +164,6 @@ module.exports = class Room
 
 	_setupTiles: (floor) ->
 		# Build tiles based on the faces of the floor.
-		@tiles = []
 		geometry = floor.geometry
 		for face, index in geometry.faces by 2
 			otherFace = geometry.faces[index + 1]

@@ -11,7 +11,8 @@ Const  = require('./constants')
 Player = require('./player')
 
 class Game
-	_mode: Const.gameModes.normal
+	mode: Const.gameModes.normal
+
 	_hud: null
 	_projector: null
 	_renderer: null
@@ -38,8 +39,6 @@ class Game
 		@_setupSocket()
 		@_setupDOM()
 		@_setupEvents()
-
-	setMode: (@_mode) ->
 
 	liftProp: (prop) ->
 		copy = prop.clone()
@@ -68,21 +67,25 @@ class Game
 
 	_setupSocket: ->
 		@_socket = new io.connect(location.origin)
-		@_socket.on('init', (response) =>
-			@_setupWorld(response._world)
+		@_socket.on('init', (data) =>
+			@_setupWorld(data._world)
 		)
-		@_socket.on('createProp', (response) =>
-			@_placePropFromJSON(response.data, @_room.tiles[response.x][response.y])
+		@_socket.on('createProp', (data) =>
+			@_placePropFromJSON(data.data, @_room.tiles[data.x][data.y])
 		)
-		@_socket.on('removeProp', (response) =>
-			@_room.removeProp(@_props[response.id])
+		@_socket.on('removeProp', (data) =>
+			@_room.removeProp(@_props[data.id])
 		)
-		@_socket.on('moveProp', (response) =>
-			prop = @_props[response.id]
-			if prop.type is 'player'
-				@_room.movePlayer(prop, response.x, response.y)
-			else
-				@_room.placeProp(prop, response.x, response.y)
+		@_socket.on('moveProp', (data) =>
+			prop = @_props[data.id]
+			tile = @_room.tiles[data.x][data.y]
+
+			switch prop.type
+				when 'player'
+					@_room.movePlayer(prop, data.x, data.y)
+				when 'prop'
+					@_room.removeProp(prop)
+					@_room.placeProp(prop, tile)
 		)
 
 	_setupDOM: ->
@@ -286,9 +289,9 @@ class Game
 
 		return unless tileMesh or propMesh
 
-		switch @_mode
+		switch @mode
 			when Const.gameModes.normal
-				@_sendMovePlayerRequest(@_mesh2object(tileMesh)) if tileMesh
+				@_sendPropMoveRequest(@_player, @_mesh2object(tileMesh))
 
 			when Const.gameModes.edit
 				# If we clicked on a mesh and we're not carrying a prop.
@@ -321,9 +324,9 @@ class Game
 		if Const.gameModes.edit and @_liftedPropGhost
 			@_liftedPropGhost.rotateRight()
 
-	_sendMovePlayerRequest: (tile) ->
-		return if tile is @_player.tile
-		@_socket.emit('movePropRequest', id: @_player.id, x: tile.xGrid, y: tile.yGrid)
+	_sendPropMoveRequest: (prop, tile) ->
+		return unless tile
+		@_socket.emit('movePropRequest', id: prop.id, x: tile.xGrid, y: tile.yGrid)
 
 	_handleHotkey: (event) ->
 		switch event.which
