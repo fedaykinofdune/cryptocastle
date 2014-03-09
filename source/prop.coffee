@@ -7,7 +7,6 @@
 #	* @object - A THREE.Mesh object (required).
 
 THREE = require('three')
-$     = require('jquery')
 _     = require('underscore')
 
 Const = require('./constants')
@@ -21,7 +20,7 @@ module.exports = class Prop
 
 	@createFromJSON: (json) ->
 		prop = new @()
-		$.extend(prop, json)
+		_.extend(prop, json)
 
 	constructor: (spriteTexturePath) ->
 		# TODO: Layout is actually not needed. All we need is width and height.
@@ -63,7 +62,7 @@ module.exports = class Prop
 	# class down the road. Primitives, nested arrays and objects are fine but
 	# stuff like THREE.Mesh will have to be manually cloned.
 	clone: ->
-		copy = $.extend(true, {}, @)
+		copy = _.extend({}, @)
 		copy.object = @object.clone()
 		copy.object.material = @object.material.clone()
 		copy
@@ -79,7 +78,7 @@ module.exports = class Prop
 		# inital position of the table in relation to (xPivot, yPivot) and
 		# (tile.xGrid, tile.yGrid)
 		if @object instanceof THREE.Sprite
-			$(@).on('spriteLoaded', =>
+			@object.material.texture.image.onload = (=>
 				@object.position = @_notchPosition(@tile)
 			)
 
@@ -151,12 +150,11 @@ module.exports = class Prop
 		texture = new THREE.ImageUtils.loadTexture(spriteTexturePath, null, (texture) =>
 			@object.scale.set(texture.image.width * 2, texture.image.height * 2, 1)
 			@_spriteHeight = texture.image.height
-			$(@).trigger('spriteLoaded')
 		)
 		material = new THREE.SpriteMaterial(map: texture, color: @_color)
 		new THREE.Sprite(material)
 
 	_notchPosition: (tile) ->
 		notch = tile.notch()
-		notch.y += (@object.geometry?.height or @_spriteHeight) / 2
+		# notch.y -= (@object.geometry?.height or @_spriteHeight) / 2
 		notch

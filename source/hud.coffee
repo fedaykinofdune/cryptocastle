@@ -9,22 +9,24 @@
 # * Game.mode
 # * Game.liftProp
 
+bean  = require('bean')
 fs    = require('fs')
-$     = require('jquery')
 
+Utils = require('./utility')
 Const = require('./constants')
 Props = require('./props')
 
 module.exports = class HUD
 	template: fs.readFileSync("#{__dirname}/templates/ui.html")
+
 	constructor: (@_game) ->
-		@el = $(@template)
+		@el = Utils.createNode(@template)
 
-		@_gameModesFieldset = @el.find('.game-modes')
-		@_shopFieldset = @el.find('.shop')
+		@_gameModesFieldset = @el.querySelectorAll('.game-modes')[0]
+		@_shopFieldset = @el.querySelectorAll('.shop')[0]
 
-		$(@_gameModesFieldset).change(@_handleGameModeChange.bind(@))
-		$(@_shopFieldset).click(@_handleShopBuy.bind(@))
+		bean.on(@_gameModesFieldset, 'change', @_handleGameModeChange.bind(@))
+		bean.on(@_shopFieldset, 'click', @_handleShopBuy.bind(@))
 
 	enableShop: -> @_shopFieldset.prop('disabled', false)
 

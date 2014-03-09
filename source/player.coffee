@@ -1,6 +1,6 @@
 THREE = require('three')
 TWEEN = require('tween')
-$     = require('jquery')
+_     = require('underscore')
 
 Prop  = require('./prop')
 Tile  = require('./tile')
@@ -30,15 +30,19 @@ module.exports = class Player extends Prop
 			_speed: @_speed
 			_color: @_color
 
-		$.extend(super(), json)
+		_.extend(super(), json)
 
 	moveAlong: (path) ->
+		if path.length <= 1
+			console.log "not setting tile omagad"
+			console.log path
 		return unless path.length > 1
 
 		@tile = @_coordPair2Tile(path[path.length - 1])
+		console.log "setting tile #{@tile.xGrid} #{@tile.yGrid}"
 		@_animateAlong(path) if @object
 
-	_coordPair2Tile: (pair) -> @room.tiles[pair[0]][pair[1]]
+	_coordPair2Tile: (pair) -> @room.tileAt(pair[0], pair[1])
 
 	_animateAlong: (path) ->
 		tweens = []

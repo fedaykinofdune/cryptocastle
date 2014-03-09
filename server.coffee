@@ -2,9 +2,9 @@ express = require('express')
 http    = require('http')
 io      = require('socket.io')
 
-Room    = require('./source/coffeescripts/room')
-Player  = require('./source/coffeescripts/player')
-Props   = require('./source/coffeescripts/props')
+Room    = require('./source/room')
+Player  = require('./source/player')
+Props   = require('./source/props')
 
 app = express()
 server = http.createServer(app)
@@ -28,10 +28,13 @@ class GameServer
     constructor: ->
         # When the server first boots up, it loads a room. For now it just
         # creates a sandbox one.
-        @_room = new Room(10, 5, 10)
+        xFloor = 6
+        yFloor = 9
+        world = (0 for x in [0...xFloor] for y in [0...yFloor])
+        @_room = new Room(world)
 
         table = new Props.DiceTable()
-        @_placeProp(table, 4, 1)
+        # @_placeProp(table, 4, 1)
 
         io.sockets.on('connection', @_handleSocketConnection.bind(@))
 
@@ -75,15 +78,15 @@ class GameServer
 
         # Create the new player and broadcast him to everyone but the current
         # connection.
-        player = new Player(@_room)
-        @_placeProp(player, 9, 5, silent: true)
-        message = x: player.tile.xGrid, y: player.tile.yGrid, data: player.toJSON()
-        socket.broadcast.emit('createProp', message)
+        # player = new Player(@_room)
+        # @_placeProp(player, 1, 1, silent: true)
+        # message = x: player.tile.xGrid, y: player.tile.yGrid, data: player.toJSON()
+        # socket.broadcast.emit('createProp', message)
 
         # Send the new player to the current connection as the current player.
-        message.data.currentPlayer = true
-        socket.emit('createProp', message)
+        # message.data.currentPlayer = true
+        # socket.emit('createProp', message)
 
-        @_players[socket.id] = player
+        # @_players[socket.id] = player
 
 gameServer = new GameServer()

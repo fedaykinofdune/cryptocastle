@@ -13,9 +13,11 @@ class DiceTable extends Prop
 
 		super()
 
+		window?.lolobject = @
+
 class Chair extends Prop
 	layout: [[1]]
-	
+
 	constructor: ->
 		geometry = new THREE.CubeGeometry(Const.tileSize * @yGridSize(), Const.tileSize / 2, Const.tileSize * @xGridSize())
 		material = new THREE.MeshLambertMaterial(color: 0xcccccc)

@@ -1,7 +1,7 @@
 THREE  = require('three')
 TWEEN  = require('tween')
 io     = require('socket.io-client')
-$      = require('jquery')
+bean   = require('bean')
 _      = require('underscore')
 
 HUD    = require('./hud')
@@ -71,14 +71,14 @@ class Game
 			@_setupWorld(data._world)
 		)
 		@_socket.on('createProp', (data) =>
-			@_placePropFromJSON(data.data, @_room.tiles[data.x][data.y])
+			@_placePropFromJSON(data.data, @_room.tileAt(data.x, data.y))
 		)
 		@_socket.on('removeProp', (data) =>
 			@_room.removeProp(@_props[data.id])
 		)
 		@_socket.on('moveProp', (data) =>
 			prop = @_props[data.id]
-			tile = @_room.tiles[data.x][data.y]
+			tile = @_room.tileAt(data.x, data.y)
 
 			switch prop.type
 				when 'player'
@@ -90,8 +90,8 @@ class Game
 
 	_setupDOM: ->
 		@_hud = new HUD(@)
-		$('body').append(@_hud.el)
-		$('body').append(@_renderer.domElement)
+		document.body.appendChild(@_hud.el)
+		document.body.appendChild(@_renderer.domElement)
 
 	_setupScene: ->
 		@_scene = new THREE.Scene()
@@ -99,38 +99,36 @@ class Game
 		width = window.innerWidth / 2
 		height = window.innerHeight / 2
 		@_camera = new THREE.OrthographicCamera(-width, width, height, -height, -500, 1000)
-		@_camera.position = new THREE.Vector3(100, 100, 100)
+		@_camera.position = new THREE.Vector3(1, 1, 1)
 		@_camera.scale.set(0.4, 0.4, 0.4)
 		@_camera.lookAt(Const.origin)
-		@_camera.position.x /= 2
-		@_camera.position.z /= 2
+		window?.cam = @_camera
 
 	_setupWorld: (world) ->
-		xFloor = world.length
-		yFloor = world[0].length
-		yWall = 5
-
-		@_room = new Room(xFloor, yWall, yFloor, world)
+		@_room = new Room(world)
 		@_scene.add(@_room.object)
 		@_scene.add(new THREE.AxisHelper(200))
-		@_mapClickableMeshes(@_room.tiles)
+		# @_mapClickableMeshes(@_room.tiles)
 
 		# Add a light.
-		roomCenter = @_room.tiles[Math.floor(xFloor / 2)][Math.floor(yFloor / 2)].notch()
+		# roomCenter = @_room.tileAt(Math.floor(@_room._xFloor / 2), Math.floor(@_room._yFloor / 2)).notch()
 		light = new THREE.PointLight()
-		light.position.set(roomCenter.x, yWall * Const.tileSize, roomCenter.z);
+		light.position.set(0, 100, 0)
 		@_scene.add(light)
 
-		@_room.eachTile((tile, x, y) =>
-			@_placePropFromJSON(world[x][y], tile)
-		)
+		# TODO: Move this into the @_room constructor.
+		# @_room.eachTile((tile, x, y) =>
+		# 	@_placePropFromJSON(world[y][x], tile)
+		# )
 
 	_setupEvents: ->
-		$(@_renderer.domElement).click(@_handleGameClick.bind(@))
-		$(document).bind('contextmenu', @_handleRightClick.bind(@))
-		$(document).mousemove(@_getMousePosition.bind(@))
-		$(document).keydown(@_handleHotkey.bind(@))
-		$(window).resize(@_updateGameSize.bind(@))
+		bean.on(@_renderer.domElement, 'click', @_handleGameClick.bind(@))
+		bean.on(window, 'resize', @_updateGameSize.bind(@))
+		bean.on(document,
+			contextmenu: @_handleRightClick.bind(@)
+			mousemove: @_getMousePosition.bind(@)
+			keydown: @_handleHotkey.bind(@)
+		)
 
 	_removeProp: (prop) ->
 		@_unmapClickableMeshes(prop)
@@ -301,6 +299,7 @@ class Game
 
 				# If we clicked on a tile and we're carrying a prop.
 				else if tileMesh and @_liftedPropGhost
+					@_sendPropMoveRequest(@_liftedProp, @_mesh2object(tileMesh))
 
 					# We remove @_liftedProp before anything else because
 					# sometimes we want to replace it in a way that overlaps its
@@ -347,6 +346,8 @@ class Game
 
 		@_camera.updateProjectionMatrix()
 		@_renderer.setSize(window.innerWidth, window.innerHeight) 
-$ ->
+
+bean.on(document, 'DOMContentLoaded', ->
 	game = new Game()
 	game.run()
+)

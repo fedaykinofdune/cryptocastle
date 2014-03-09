@@ -1,52 +1,39 @@
 require 'fileutils'
-require 'listen'
 
-COFFEE_SOURCE_PATH = "#{File.dirname(__FILE__)}/source/coffeescripts/"
+JAVASCRIPTS_DIR = './public/javascripts'
 
 task default: :build
 
-desc 'Start development server'
-task :serve do
-  exec("env NODE_PATH='./source/javascripts/vendor' $(npm bin)/nodemon server.coffee")
-end
+def compile(command)
+  outputFile = "#{JAVASCRIPTS_DIR}/game.js"
 
-desc 'Compiles on file change'
-task :watch do
-  system 'rake build'
-  puts "Watching for changes in #{COFFEE_SOURCE_PATH}"
-
-  listener = Listen.to(COFFEE_SOURCE_PATH) do |modified, added, removed|
-    puts "File changed: #{added.first}, recompiling..."
-    system 'rake build'
-  end
-  listener.start
-  sleep
-end
-
-desc 'Compile coffeescript source'
-task :compile do
-  output = "#{File.dirname(__FILE__)}/source/javascripts/"
-
-  FileUtils.mkdir_p(output)
-  `$(npm bin)/coffee -o #{output} -c #{COFFEE_SOURCE_PATH}/*.coffee`
-end
-
-desc 'Build coffeescript source'
-task build: :compile do
-  output = "#{File.dirname(__FILE__)}/public/javascripts"
-  outputFile = "#{output}/game.js"
-
-  FileUtils.mkdir_p(output)
+  FileUtils.mkdir_p(JAVASCRIPTS_DIR)
   FileUtils.rm_f(outputFile)
 
   case ENV['ENV']
   when 'production'
-    `$(npm bin)/browserify . --noparse=jquery -t brfs | $(npm bin)/uglifyjs -o #{outputFile}`
+    `#{command} -t coffeeify -t brfs --extension=".coffee" | $(npm bin)/uglifyjs -o #{outputFile}`
   else
-    `$(npm bin)/browserify . --noparse=jquery --fast -t brfs -o #{outputFile}`
+    `#{command} -t coffeeify -t brfs -d -x three -x tween -o #{outputFile} --fast --extension=".coffee"`
   end
+end
 
-  if $?.to_i == 0
-    puts "Built successfully as #{outputFile}"
-  end
+desc 'Start development server'
+task :serve do
+  exec("env NODE_PATH='./vendor' $(npm bin)/nodemon server.coffee")
+end
+
+desc 'Builds the library bundle used in development mode.'
+task :bundle do
+  `$(npm bin)/browserify -r ./vendor/three.js:three -r tween > #{JAVASCRIPTS_DIR}/bundle.js`
+end
+
+desc 'Compiles on file change'
+task watch: :bundle do
+  compile('$(npm bin)/watchify . -v')
+end
+
+desc 'Build coffeescript source'
+task build: :bundle do
+  compile('$(npm bin)/browserify .')
 end

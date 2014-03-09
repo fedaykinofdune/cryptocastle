@@ -1,6 +1,6 @@
 THREE = require('three')
-PF    = require('pathfinding')
-_     = require('underscore')
+PF	= require('pathfinding')
+_	 = require('underscore')
 
 Tile  = require('./tile')
 Const = require('./constants')
@@ -15,57 +15,60 @@ module.exports = class Room
 	_pathfinder: null
 	_world: null
 
-	constructor: (@_xFloor, @_yWall, @_yFloor, @_world) ->
-		sizeX = Const.tileSize * @_xFloor
-		sizeY = Const.tileSize * @_yWall
-		sizeZ = Const.tileSize * @_yFloor
-
+	constructor: (@_world, @_yWall = 5) ->
 		# TODO: Combine @tiles and @_world. Right now @tiles is dictated by
 		# geometry which is dictated by @_xFloor, @_yWall, @_yFloor. It should
 		# be that @_world is served up by the server, which determines @_xFloor,
 		# @_yFloor which determines geometry and populates @tiles from @_world
 		# data internally.
-		@_world ?= (0 for x in [0...@_xFloor] for y in [0...@_yFloor])
+		@_xFloor = @_world[0].length
+		@_yFloor = @_world.length
+
 		@_grid = new PF.Grid(@_xFloor, @_yFloor, @_world)
 		@_pathfinder = new PF.AStarFinder(allowDiagonal: true, dontCrossCorners: true)
 
+		sizeX = Const.tileSize * @_xFloor
+		sizeY = Const.tileSize * @_yWall
+		sizeZ = Const.tileSize * @_yFloor
+
 		# Build the isometric room. 
 
-		# TODO: Build the room mesh without several plane meshes and a rotation.
-		# Allow passing in an arbitrary 2d array of tile layout and procedurally
-		# generate the vertices for the walls and floors that will bound those
-		# tiles. This will create a custom THREE.Geometry. Now a rotation isn't
-		# necessary.
-
 		# TODO: Move this stuff to a render function so that the back-end isn't
-		# running all this needlessly. But for that we need to make _setupTiles
-		# not depend on geometry. Is it better to just separate Room and
-		# RoomDrawable instead of this render function stuff?
-		material = new THREE.MeshNormalMaterial()
-		material.side = THREE.DoubleSide
-		floor = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeZ, @_xFloor, @_yFloor), material)
-		leftWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeX, sizeY), material)
-		rightWall = new THREE.Mesh(new THREE.PlaneGeometry(sizeY, sizeZ), material)
+		# running all this needlessly. 
+		geometry = new THREE.Geometry()
 
-		floor.rotation.x = Math.PI / 2
-		leftWall.rotation.y = Math.PI / 2
-		leftWall.position = new THREE.Vector3(-sizeX / 2, sizeY / 2, 0)
-		rightWall.rotation.z = Math.PI / 2
-		rightWall.position = new THREE.Vector3(0, sizeY / 2, -sizeZ / 2)
+		geometry.vertices.push(new THREE.Vector3(sizeX / 2, 0, -sizeZ / 2))
+		geometry.vertices.push(new THREE.Vector3(-sizeX / 2, 0, -sizeZ / 2))
+		geometry.vertices.push(new THREE.Vector3(-sizeX / 2, 0, sizeZ / 2))
+		geometry.vertices.push(new THREE.Vector3(sizeX / 2, 0, sizeZ / 2))
+		geometry.vertices.push(new THREE.Vector3(sizeX / 2, sizeY / 2, -sizeZ / 2))
+		geometry.vertices.push(new THREE.Vector3(-sizeX / 2, sizeY / 2, -sizeZ / 2))
+		geometry.vertices.push(new THREE.Vector3(-sizeX / 2, sizeY / 2, sizeZ / 2))
 
-		@object = new THREE.Object3D()
-		@object.add(floor)
-		@object.add(leftWall)
-		@object.add(rightWall)
+		geometry.faces.push(new THREE.Face3(0, 1, 2))
+		geometry.faces.push(new THREE.Face3(0, 2, 3))
+		geometry.faces.push(new THREE.Face3(0, 4, 5))
+		geometry.faces.push(new THREE.Face3(0, 1, 5))
+		geometry.faces.push(new THREE.Face3(1, 2, 6))
+		geometry.faces.push(new THREE.Face3(1, 5, 6))
 
-		@_setupTiles(floor)
+		material = new THREE.MeshLambertMaterial(
+			color: 0xff0000
+			side: THREE.DoubleSide
+		)
+
+		@object = new THREE.Mesh(geometry, material)	
+
+		# @_setupTiles(floor)
 
 	toJSON: -> 
 		_world: @_world
 
+	tileAt: (x, y) -> @tiles[y]?[x]
+
 	movePlayer: (player, x, y) ->
 		@unsetCollisionFor(player)
-		tile = @nearestFreeTile(player.tile, @tiles[x][y])
+		tile = @nearestFreeTile(player.tile, @tileAt(x, y))
 		path = @_pathfinder.findPath(
 			player.tile.xGrid
 			player.tile.yGrid
@@ -77,7 +80,7 @@ module.exports = class Room
 		@setCollisionFor(player)
 
 	placeProp: (prop, x, y) ->
-		tile = if x instanceof Tile then x else @tiles[x][y]
+		tile = if x instanceof Tile then x else @tileAt(x, y)
 		prop.placeOn(tile)
 		@setCollisionFor(prop)
 
@@ -94,11 +97,15 @@ module.exports = class Room
 			@eachTileRing(targetTile, radius, (tile) =>
 				return unless @_grid.isWalkableAt(tile.xGrid, tile.yGrid)
 				distance = sourceTile.object.position.distanceTo(tile.object.position)
+				console.log "#{distance} #{nearestDistance}"
 				if distance < nearestDistance
 					nearestDistance = distance
 					nearestTile = tile
 			)
 
+			if nearestTile
+				console.log "nearest tile!"
+				console.log "#{nearestTile.xGrid} #{nearestTile.yGrid}"
 			return nearestTile if nearestTile
 
 		sourceTile
@@ -120,29 +127,29 @@ module.exports = class Room
 
 	# Considering a prop and it's pivot tile, place the prop on the AI grid.
 	unsetCollisionFor: (prop) ->
-		@_world[prop.tile.xGrid][prop.tile.yGrid] = 0 if prop.tile
+		@_world[prop.tile.yGrid][prop.tile.xGrid] = 0 if prop.tile
 
 		prop.eachTile((xIndex, yIndex) =>
 			@_grid.setWalkableAt(xIndex, yIndex, true)
 		)
 
 	setCollisionFor: (prop) ->
-		@_world[prop.tile.xGrid][prop.tile.yGrid] = prop if prop.tile
+		@_world[prop.tile.yGrid][prop.tile.xGrid] = prop if prop.tile
 
 		prop.eachTile((xIndex, yIndex) =>
 			@_grid.setWalkableAt(xIndex, yIndex, false)
 		)
 
 	eachTile: (callback) ->
-		for x in [0...@_xFloor]
-			for y in [0...@_yFloor]		
-				value = callback(@tiles[x][y], x, y)
-				return @tiles[x][y] if value is false
+		for y in [0...@_yFloor]		
+			for x in [0...@_xFloor]
+				value = callback(@tileAt(x, y), x, y)
+				return @tileAt(x, y) if value is false
 
 	# TODO: Replace this with a hash lookup rather than linear iteration.
 	mesh2tileObj: (mesh) ->
 		@eachTile((tile, x, y) =>
-			false if @tiles[x][y].object is mesh
+			false if @tileAt(x, y).object is mesh
 		)
 
 	# Iterate an outer ring around a given tile. Useful for Room.nearestFreeTile
@@ -151,14 +158,14 @@ module.exports = class Room
 		return callback(centerTile) if radius is 0
 
 		for x in [(centerTile.xGrid - radius)...(centerTile.xGrid + radius)]
-			tileBottom = @tiles[x]?[centerTile.yGrid + radius]
-			tileTop = @tiles[x]?[centerTile.yGrid - radius]
+			tileBottom = @tileAt(x, centerTile.yGrid + radius)
+			tileTop = @tileAt(x, centerTile.yGrid - radius)
 			callback(tileTop) if tileTop
 			callback(tileBottom) if tileBottom
 
 		for y in [(centerTile.yGrid - radius + 1)...(centerTile.yGrid + radius - 1)]
-			tileLeft = @tiles[centerTile.xGrid - radius]?[y]
-			tileRight = @tiles[centerTile.xGrid + radius]?[y]
+			tileLeft = @tileAt(centerTile.xGrid - radius, y)
+			tileRight = @tileAt(centerTile.xGrid + radius, y)
 			callback(tileLeft) if tileLeft
 			callback(tileRight) if tileRight
 
@@ -180,10 +187,12 @@ module.exports = class Room
 			centroid.add(vertex) for vertex in vertices
 			centroid.divideScalar(vertices.length)
 
-			xIndex = Math.floor(index / 2 / @_xFloor)
-			@tiles[xIndex] ?= []
-			yIndex = @tiles[xIndex].length
+			tileIndex = index / 2
+			xIndex = tileIndex % @_xFloor
+			yIndex = Math.floor(tileIndex / @_xFloor)
 
 			tile = new Tile(centroid.x, centroid.y, centroid.z - 1, xIndex, yIndex)
-			@tiles[xIndex][yIndex] = tile
+
+			@tiles[yIndex] ?= []
+			@tiles[yIndex][xIndex] = tile
 			floor.add(tile.object)

@@ -25,7 +25,7 @@ module.exports = class Tile
 
 	notch: ->
 		new THREE.Vector3(
-			@object.position.x,
-			@object.position.z,
-			@object.position.y
+			-@object.position.y,
+			 @object.position.x,
+			 @object.position.z
 		)
