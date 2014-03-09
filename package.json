@@ -1,5 +1,5 @@
 {
-  "name": "bitcoinbet",
+  "name": "cryptocastle",
   "version": "0.0.0",
   "engines": {
     "node": "0.10.x"
@@ -40,7 +40,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/mhluska/bitcoinbet.git"
+    "url": "git://github.com/mhluska/cryptocastle.git"
   },
   "keywords": [
     "bitcoin",
@@ -50,6 +50,6 @@
   "author": "Maros Hluska",
   "license": "BSD-2-Clause",
   "bugs": {
-    "url": "https://github.com/mhluska/bitcoinbet/issues"
+    "url": "https://github.com/mhluska/cryptocastle/issues"
   }
 }
